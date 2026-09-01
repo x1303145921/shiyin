@@ -2,6 +2,22 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [v0.4.0] - 2026-09-01
+
+### 图标 v4 重设计（三轮迭代）
+- **图标 v4（轮 1）**：弃用 v3 波形条造型，重设计为「亮青蓝渐变圆角方块 + 白色圆头麦克风 + 右侧声波扩散弧线」——贴合拾音语义，透明背景无白底无边框
+- **双源稿策略（轮 1）**：全细节版（48~512px）+ 简化版（16/32px 自动切换，防小尺寸糊团）
+- **渲染链路重建（轮 1）**：新增 `scripts/render-icon.js`——Edge headless + CDP 渲染透明背景 PNG，**修复 CLI 截图丢 alpha 通道的根因**（此前透明背景图标从未真正落地）；新增 `scripts/build-ico.js`——手写 ICO（ICONDIR + PNG 条目，零依赖，16~256 六尺寸）
+- **场景适配验证（轮 2）**：浅色/深色双背景对比图 + 边缘 halo 检测（687 个过渡像素 0 异常，无脏边）
+- **缓存与分发修复（轮 3）**：Service Worker 缓存升 `shiyin-v4` + favicon `?v=4` + manifest 核对 + `ie4uinit.exe -show` 刷新 Windows 图标缓存；HTTP 实测新图标下发（ICO 67,656B / PNG 139,016B）
+- 视觉对比图归档：`assets/icon-compare-v4.png`（多尺寸）与 `assets/icon-scene-v4.png`（浅/深背景）
+
+### 开源发布（SOP 全流程）
+- 新增文档体系：README.en.md（英文版）/ README.txt / CONTRIBUTING.md / CODE_OF_CONDUCT.md / RELEASE.md / THIRD-PARTY-NOTICES.txt / pull_request_template.md / .editorconfig / `.github/workflows/ci.yml`（CI 语法自检）
+- README.md 重写：功能特性表 / 下载 / 快速开始 / 模型管理 / API 参考 / 项目结构 / FAQ / 隐私安全
+- 新增 `scripts/check-html.js`：HTML 内联 JS 语法检查
+- 版本号：0.3.2 → 0.4.0
+
 ## [v0.3.2] - 2026-09-01
 
 ### 修复

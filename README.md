@@ -1,122 +1,169 @@
-# 🐋 拾音（Shiyin）
+# 拾音 · 本地音频/视频转文字
 
-**纯本地运行的音频 / 视频转文字工具** —— 基于 [whisper.cpp](https://github.com/ggml-org/whisper.cpp)，Node.js 驱动，文件全程不出电脑。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](RELEASE.md)
+[![Node](https://img.shields.io/badge/Node.js-18+-green.svg)](package.json)
+[![CI](https://github.com/x1303145921/shiyin/actions/workflows/ci.yml/badge.svg)](https://github.com/x1303145921/shiyin/actions/workflows/ci.yml)
 
-> 「拾音」：把声音拾起来，变成文字。
+> 开口即录，落笔成文 —— 文件不出电脑的语音转文字工具。
 
----
+**拾音（shiyin）** 是一个纯本地、离线运行的音频/视频转文字工具，基于 [whisper.cpp](https://github.com/ggerganov/whisper.cpp) 语音识别引擎。你的音频文件**不会上传到任何服务器**——识别全程在本机完成，适合会议录音、课程笔记、访谈整理等重视隐私的场景。
 
-## ✨ 特性
+- **纯本地**：服务仅监听 `127.0.0.1`，文件与模型均不出电脑
+- **网页界面**：双击启动，浏览器即用，零安装依赖（需 Node.js 18+）
+- **三种输出**：txt / srt / vtt 字幕格式一键切换、在线编辑、即改即存
+- **字幕跟读**：内置播放器 + 字幕段落点击跳转，跟读学习两相宜
+- **模型自由**：极速/均衡/高精度三档模型，面板一键下载切换
 
-- **完全本地离线**：识别引擎 whisper.cpp 在本机运行，音频/视频文件不上传任何服务器
-- **音频/视频通吃**：mp3 / wav / m4a / flac / mp4 / mkv … 自动抽取音轨转文字
-- **批量排队**：多文件拖入自动排队，并发 2 加速处理
-- **简体中文输出**：识别结果自动繁转简
-- **反幻觉识别**：温度 0 + 禁用回退 + 无语音阈值，减少凭空编造内容
-- **多格式输出**：txt / srt / vtt 字幕一键保存
-- **可编辑结果**：识别后可在文本框直接修改再保存
-- **字幕跟读（v0.3）**：结果页「📖 跟读」页签内置播放器——点击字幕行从该处播放，当前行自动高亮，空格键播放/暂停
-- **VAD 静音跳过（v0.3）**：一键下载静音检测模型，长音频/播客只识别语音段，更快更准
-- **模型自由切换**：内置下载器（断点续传），base / small / turbo 一键切换
-- **记住保存位置**：选定输出文件夹后自动记住，下次免选
-- **PWA 支持**：可安装为桌面应用，界面可离线打开
-- **界面中文**：全中文操作界面
+## ✨ 功能特性
 
-## 📦 快速开始
+| 特性 | 说明 |
+|---|---|
+| 🎙 **whisper.cpp 本地识别** | 音频/视频直接转文字，全程离线，文件不出电脑 |
+| 📝 **三格式输出** | 全文 txt / 字幕 srt / 网页字幕 vtt，一键切换、在线编辑即存 |
+| 📖 **字幕跟读** | 内置播放器 + 字幕段落列表，点击任意行精确跳转（误差 < 0.3s），当前行自动高亮，空格播放/暂停，支持音视频 |
+| 🧹 **VAD 静音跳过** | 可选启用 Silero VAD，自动跳过静音段，长音频/播客显著加速，减少环境声幻觉 |
+| 🧠 **重复幻觉修复** | 内置双重后处理：相邻重复段落合并 + 段内同一词重复收缩（真实音频验证：重复 40 次 → 1 次） |
+| ⏱ **跳过转码提速** | 已是 16kHz 单声道 WAV 的文件直接识别，跳过 ffmpeg 预处理（秒级探测） |
+| 🖱 **全局拖拽上传** | 文件拖到页面任意位置即可上传，实时进度条 + 前后端双层格式校验 |
+| ↻ **失败一键重试** | 转写失败卡片一键重试，原始媒体保留期内直接复用，无需重新上传 |
+| 🎚 **模型管理面板** | 极速 base / 均衡 small / 高精度 turbo 三档，一键下载、切换、删除（hf-mirror.com 镜像） |
+| 🔔 **后台完成提醒** | 页面在后台时识别完成自动闪烁标签页标题 |
+| 📊 **列表接口瘦身** | 任务多时按需拉取详情，长列表不卡顿 |
+| ⏳ **转写耗时显示** | 完成卡片显示实际用时（60s 音频本地 CPU 约 20~30s） |
+| 📦 **PWA 可安装** | 支持安装到桌面/任务栏，独立窗口运行 |
 
-### 环境要求
-- Windows 10/11
-- Node.js 18+（<https://nodejs.org/zh-cn/download>）
-- ffmpeg（已加入 PATH；或放置于 `D:\Tools\ffmpeg\bin`）
+## 🖼 界面预览
 
-### 启动
+![拾音界面预览](assets/screenshot.png)
 
-```bat
-双击「启动拾音.bat」
-```
+## ⬇️ 下载
 
-或命令行：
+| 方式 | 适合谁 | 操作 |
+|---|---|---|
+| **git clone** | 想直接用的所有人 | `git clone https://github.com/x1303145921/shiyin.git` |
+| **源码 ZIP** | 只想先看看 | 仓库页面绿色 `Code` 按钮 → `Download ZIP` |
+| **Releases** | 追版本更新 | [Releases 页面](https://github.com/x1303145921/shiyin/releases)（含源码包与发布说明） |
+
+> 💡 拾音依赖 Node.js 18+（[官方下载](https://nodejs.org/zh-cn/download)）；whisper 模型约 141~547 MB，首次使用时在「模型管理」面板一键下载。
+
+## 🚀 快速开始（Windows 小白版）
+
+### 第 1 步：准备
+
+安装 [Node.js 18+](https://nodejs.org/zh-cn/download)（一路下一步即可）。
+
+### 第 2 步：启动
+
+双击 `启动拾音.bat` —— 服务自动在后台启动，浏览器自动打开 `http://127.0.0.1:18900`。
+
+> 想固定在桌面？双击 `安装到桌面.bat`，自动生成「拾音」快捷方式（含新图标）。
+> 想关闭服务？双击 `停止拾音.bat`（按端口精确停止，不误伤其它程序）。
+
+### 第 3 步：使用
+
+1. 首次使用先到右侧「模型管理」面板下载一个模型（推荐 **turbo**，性价比最优；日常快速用 **small**）
+2. 把音频/视频文件拖进页面（或点击选择文件），选好模型与 VAD 选项
+3. 点击「开始识别」——完成后即可查看/编辑全文与字幕，或保存文件
+
+### 其他平台（macOS / Linux）
 
 ```bash
-node server.js
+npm install          # 安装依赖（express / multer / chinese-conv）
+npm start            # 启动服务 → 浏览器打开 http://127.0.0.1:18900
 ```
 
-然后浏览器打开 <http://127.0.0.1:18900>
+## 🎙 模型管理
 
-> 想放桌面快捷方式？运行「安装到桌面.bat」，一键创建带图标的桌面快捷方式。
+| 模型 | 大小 | 定位 |
+|---|---|---|
+| `ggml-base.bin` | 141 MB | 极速 · 低要求设备 |
+| `ggml-small.bin` | 465 MB | 快速 · 日常够用 |
+| `ggml-large-v3-turbo-q5_0.bin` | 547 MB | 高精度 · 性价比最优（推荐） |
 
-## 🎯 使用说明
+- 模型从 Hugging Face 官方镜像（hf-mirror.com）下载，下载时校验 SHA256
+- 缓存目录：`D:\shiyin-cache\models`（可通过服务端配置调整）
+- 切换模型即时生效，无需重启服务
 
-1. **拖入文件**：把音频/视频拖进上传区（可多选），自动排队识别
-2. **选模型**（右侧面板）：
-   | 模型 | 大小 | 特点 |
-   |---|---|---|
-   | ggml-base.bin | 141 MB | 极速，要求低 |
-   | ggml-small.bin | 465 MB | 快速，日常够用 |
-   | ggml-large-v3-turbo-q5_0.bin | 547 MB | 高精度，性价比最优（推荐） |
-3. **编辑结果**：识别完成后在文本框里直接修改
-4. **字幕跟读**：点结果页「📖 跟读」，用内置播放器边听边对照字幕——点击任意字幕行即从该处播放，播放时当前行自动高亮；键盘空格 = 播放/暂停
-5. **跳过静音段（可选）**：右侧面板先下载「静音检测模型（VAD）」（0.9 MB），再勾选上传区「🧹 跳过静音段」——适合长录音/播客/会议
-6. **保存**：点「保存」，选格式（txt/srt/vtt）、改文件名、选位置；也可先点「选择文件夹并记住」，以后直接保存
-7. **下载模型**：右侧模型卡片点「下载」，支持断点续传
+## 🔌 API 参考
 
-## 🏗 工作原理
+服务默认监听 `127.0.0.1:18900`，前端即调用以下接口（也可供脚本自动化使用）：
 
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/transcribe` | 上传音频/视频并创建转写任务（multipart，字段 `file`） |
+| GET | `/api/tasks` | 任务列表（含 VAD/模型/时长等元信息，不含字幕大字段，按需拉详情） |
+| GET | `/api/task/:id` | 任务详情（含 txt / srt / vtt 全文与媒体信息） |
+| POST | `/api/task/:id/retry` | 失败任务重试（保留原始媒体，无需重新上传） |
+| GET | `/api/models` | 模型列表与下载/激活状态 |
+| POST | `/api/models/use` | 切换当前使用的模型 |
+| POST | `/api/models/download` | 下载模型（body: `{ "name": "ggml-small.bin" }`） |
+| POST | `/api/vad/download` | 下载 Silero VAD 静音检测模型 |
+
+## 🛠 开发与构建
+
+```bash
+# 语法检查（服务端 + 图标渲染/打包脚本）
+node --check server.js
+node --check scripts/render-icon.js
+node --check scripts/build-ico.js
+
+# 启动开发服务
+npm start
+
+# 重新渲染图标（改 public/icon-source.html 后）：
+#   主图：node scripts/render-icon.js public/icon-source.html work-ico/full-512.png 512
+#   简化图（16/32px）：node scripts/render-icon.js public/icon-source-mini.html work-ico/mini-512.png 512
+#   缩放各尺寸（ffmpeg）→ 打包 ICO：node scripts/build-ico.js work-ico public/app-icon.ico 16,32,48,64,128,256
+#   （渲染/打包链路细节见 scripts/ 内文件头注释与 CHANGELOG v0.4.0）
 ```
-音视频文件 ──► FFmpeg 预处理（16kHz 单声道）──► whisper.cpp 识别 ──► 繁转简 ──► txt/srt/vtt
-                （可选 VAD：只保留语音段）                    └──► 保留原文件 → 字幕跟读播放
-```
 
-- 服务仅监听 `127.0.0.1`（本机），不对外暴露
-- 上传文件与转写中间产物处理完自动清理；保留的媒体文件（供跟读播放）随任务记录 2 小时后自动清理
-- 模型与工作文件放在纯 ASCII 路径 `D:\shiyin-cache\`（whisper.cpp 在 Windows 下对中文路径支持不佳）
+## 📁 项目结构
 
-## 📁 目录结构
-
-```
+```text
 拾音/
-├── server.js              # 服务端（Express + 任务队列 + 模型管理）
-├── package.json
-├── 启动拾音.bat            # 一键启动（自动检测端口/健康检查/开浏览器）
-├── 安装到桌面.bat          # 创建桌面快捷方式（带图标）
-├── public/                # 前端界面
-│   ├── index.html
-│   ├── app-icon.ico       # 应用图标（16~256 多尺寸）
-│   ├── app-icon-512.png
-│   ├── manifest.json      # PWA 清单
-│   ├── service-worker.js  # 离线缓存
-│   └── icon-source.html   # 图标源稿（SVG）
-├── bin/Release/           # whisper-cli.exe（whisper.cpp 引擎）
-└── models/                # 模型文件（ggml-*.bin）
+├── server.js               # 服务端（Express：上传/任务/模型/转写队列）
+├── public/                 # 前端（原生 HTML/CSS/JS + PWA）
+│   ├── index.html          # 主页面（拖拽上传/任务卡片/模型面板/跟读播放器）
+│   ├── service-worker.js   # PWA 缓存（shiyin-v4，图标换新需 bump 版本）
+│   ├── manifest.json       # PWA 清单（名称/主题色/图标）
+│   └── icon-source.html    # 图标 SVG 源稿（全细节版）
+│   └── icon-source-mini.html # 图标 SVG 源稿（16/32px 简化版）
+├── scripts/                # 工具脚本
+│   ├── render-icon.js      # CDP 透明背景图标渲染（零依赖，Node 21+）
+│   └── build-ico.js        # 手写 ICO 打包（ICONDIR + PNG 条目）
+├── assets/                 # 截图与视觉资料
+├── test-audio/             # 本地测试音频（不入库）
+├── 启动拾音.bat            # Windows 启动器
+├── 停止拾音.bat            # Windows 停止器（按端口精确停止）
+├── 安装到桌面.bat          # 桌面快捷方式 + 图标缓存刷新
+├── package.json / LICENSE / CHANGELOG.md / README.md / ...
 ```
 
-## 🔧 技术栈
+## ❓ 常见问题（FAQ）
 
-- **识别引擎**：whisper.cpp v1.9.2（CPU 版，18 核线程优化，并发 2）
-- **服务端**：Node.js + Express 5 + Multer
-- **前端**：原生 HTML/CSS/JS（无框架），PWA
-- **繁转简**：chinese-conv（sify）
+| 问题 | 解答 |
+|---|---|
+| **打不开页面？** | 确认已安装 Node.js 18+；双击 `启动拾音.bat` 后浏览器地址栏输入 `http://127.0.0.1:18900` |
+| **识别速度慢？** | 本地 CPU 转写约为实时语速的 2~4 倍（60s 音频约 20~30s），属正常；可换 small 模型提速，或开启「跳过静音段」（VAD） |
+| **识别结果有重复？** | 已内置重复幻觉修复；若仍出现，可在 GitHub Issues 附上音频特征描述（时长/环境/口音），我们针对性优化 |
+| **模型下载失败？** | 模型来自 hf-mirror.com 镜像；可稍后重试，或手动放置模型文件到缓存目录 `D:\shiyin-cache\models` |
+| **浏览器图标还是旧的？** | 强制刷新：浏览器 Ctrl+F5；PWA 固定图标需取消固定再重新固定；Windows 桌面图标残留请重跑 `安装到桌面.bat`（自动刷新图标缓存） |
+| **支持哪些格式？** | 常见音视频格式均可（wav/mp3/m4a/flac/mp4/mkv/avi 等，内部经 ffmpeg 处理）；已是 16kHz 单声道 WAV 时跳过转码直识别 |
+| **能识别方言/英文吗？** | 默认中文（`-l zh`）；whisper.cpp 支持多语言，可通过服务端参数调整 |
+| **会联网吗？** | 仅下载模型时联网（hf-mirror.com）；转写全程离线，音频不出电脑 |
 
-## 🤝 贡献
+## 🔒 隐私与安全
 
-欢迎提 Issue / PR。开发约定：
+- 服务仅监听 `127.0.0.1`，不对外网开放；请勿修改监听地址暴露到局域网/公网
+- 上传文件与转写中间产物在任务生命周期结束后自动清理
+- 前端不依赖任何第三方 CDN，无外部脚本注入面
+- 完整安全边界见 [SECURITY.md](SECURITY.md)
 
-```bash
-npm install        # 安装依赖
-node server.js     # 本地开发（端口 18900）
-```
+## 📜 许可证
 
-## 📄 开源协议
-
-[MIT License](./LICENSE) —— 自由使用、修改、分发，保留版权声明即可。
-
-## 🔒 安全说明
-
-- 纯本地运行，音频不上传
-- 服务仅监听 127.0.0.1
-- 模型来自 Hugging Face 官方镜像（hf-mirror.com）
-- 漏洞反馈见 [SECURITY.md](./SECURITY.md)
+[MIT License](LICENSE) © 2026 颜（x1303145921）
 
 ---
 
-Made with 🐋 by 颜 (x1303145921)
+*拾音 —— 灯下拾音，纸上落字。*

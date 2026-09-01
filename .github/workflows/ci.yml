@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  syntax-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check server.js syntax
+        run: node --check server.js
+
+      - name: Check icon scripts syntax
+        run: |
+          node --check scripts/render-icon.js
+          node --check scripts/build-ico.js
+
+      - name: Check HTML inline JS syntax
+        run: node scripts/check-html.js
+
+      - name: Check essential files exist
+        run: |
+          for f in "public/index.html" "public/manifest.json" "public/service-worker.js" \
+                   "public/app-icon.ico" "public/icon-source.html" "public/icon-source-mini.html" \
+                   "README.md" "README.en.md" "README.txt" "LICENSE" "CHANGELOG.md" \
+                   "CONTRIBUTING.md" "SECURITY.md" "RELEASE.md" "THIRD-PARTY-NOTICES.txt" \
+                   "CODE_OF_CONDUCT.md" "pull_request_template.md" ".editorconfig" \
+                   "启动拾音.bat" "停止拾音.bat" "安装到桌面.bat"; do
+            test -s "$f" && echo "OK $f" || { echo "MISSING/EMPTY $f"; exit 1; }
+          done

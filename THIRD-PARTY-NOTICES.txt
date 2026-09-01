@@ -1,0 +1,35 @@
+THIRD-PARTY NOTICES
+===================
+
+拾音 (shiyin) v0.4.0
+
+本项目运行时依赖以下第三方开源软件与库：
+
+1. whisper.cpp（语音识别引擎）
+   - 仓库：https://github.com/ggerganov/whisper.cpp
+   - 许可证：MIT License
+   - 用途：核心语音转文字推理引擎（本地运行，二进制随项目分发于 bin/ 或独立部署）
+   - 版权：Copyright (c) 2022 Georgi Gerganov
+
+2. Node.js 运行时与 npm 依赖包
+   - express（Web 框架）— MIT License
+   - multer（文件上传中间件）— MIT License
+   - chinese-conv（简繁转换）— MIT License
+   - 依赖清单与版本见 package.json / package-lock.json
+
+3. 语音模型（运行时按需下载，不入库）
+   - OpenAI Whisper 模型（ggml 格式，源自 OpenAI whisper / hf-mirror.com 镜像）
+     · ggml-base.bin / ggml-small.bin / ggml-large-v3-turbo-q5_0.bin
+   - Silero VAD（ggml-silero-v6.2.0.bin）— 静音检测
+   - 各模型版权归原作者所有，仅用于本地推理
+
+4. 前端与视觉
+   - 图标为原创绘制（亮青蓝渐变圆角方块 + 白色麦克风声波），无第三方素材
+   - 使用系统字体栈（Microsoft YaHei / system-ui），无字体文件分发
+   - PWA 使用浏览器标准 API（Service Worker / Manifest / Web Audio），无第三方代码引入
+
+5. 工具链（仅开发/构建期）
+   - ffmpeg（媒体预处理/图标缩放）— LGPL/GPL
+   - Edge/Chromium headless（图标透明背景渲染）
+
+本项目的自有代码、文档、图标均以 MIT License 发布，详见 LICENSE 文件。

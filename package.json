@@ -1,6 +1,6 @@
 {
   "name": "shiyin",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "拾音 - 纯本地音频转文字工具（语音识别 ASR），基于 whisper.cpp，文件不出电脑",
   "main": "server.js",
   "scripts": {
