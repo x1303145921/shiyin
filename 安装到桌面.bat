@@ -1,31 +1,30 @@
 @echo off
 setlocal EnableDelayedExpansion
-chcp 65001 >nul
-title æ‹¾éŸ³ Â· å®‰è£…åˆ°æ¡Œé¢
+title Ê°Òô ¡¤ °²×°µ½×ÀÃæ
 cd /d "%~dp0"
 
-:: æ£€æŸ¥å¿…å¤‡æ–‡ä»¶
-if not exist "%~dp0å¯åŠ¨æ‹¾éŸ³.bat" goto :missing
+:: ¼ì²é±Ø±¸ÎÄ¼ş
+if not exist "%~dp0Æô¶¯Ê°Òô.bat" goto :missing
 if not exist "%~dp0public\app-icon.ico" goto :missing
 
-:: åˆ›å»ºæ¡Œé¢å¿«æ·æ–¹å¼ï¼ˆæŒ‡å‘å¯åŠ¨è„šæœ¬ + åº”ç”¨å›¾æ ‡ï¼‰
+:: ´´½¨×ÀÃæ¿ì½İ·½Ê½£¨Ö¸ÏòÆô¶¯½Å±¾ + Ó¦ÓÃÍ¼±ê£©
 set "SHIYIN_DIR=%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$d=[Environment]::GetFolderPath('Desktop'); $s=(New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $d 'æ‹¾éŸ³.lnk')); $s.TargetPath=(Join-Path $env:SHIYIN_DIR 'å¯åŠ¨æ‹¾éŸ³.bat'); $s.WorkingDirectory=$env:SHIYIN_DIR; $s.IconLocation=(Join-Path $env:SHIYIN_DIR 'public\app-icon.ico')+',0'; $s.Description='æ‹¾éŸ³ - æœ¬åœ°éŸ³é¢‘/è§†é¢‘è½¬æ–‡å­—'; $s.Save()"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$d=[Environment]::GetFolderPath('Desktop'); $s=(New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $d 'Ê°Òô.lnk')); $s.TargetPath=(Join-Path $env:SHIYIN_DIR 'Æô¶¯Ê°Òô.bat'); $s.WorkingDirectory=$env:SHIYIN_DIR; $s.IconLocation=(Join-Path $env:SHIYIN_DIR 'public\app-icon.ico')+',0'; $s.Description='Ê°Òô - ±¾µØÒôÆµ/ÊÓÆµ×ªÎÄ×Ö'; $s.Save()"
 if errorlevel 1 goto :fail
 
 echo.
-echo  [æˆåŠŸ] å·²åœ¨æ¡Œé¢åˆ›å»ºã€Œæ‹¾éŸ³ã€å¿«æ·æ–¹å¼ï¼
-echo  åŒå‡»æ¡Œé¢ã€Œæ‹¾éŸ³ã€å³å¯å¯åŠ¨ã€‚
+echo  [³É¹¦] ÒÑÔÚ×ÀÃæ´´½¨¡¸Ê°Òô¡¹¿ì½İ·½Ê½£¡
+echo  Ë«»÷×ÀÃæ¡¸Ê°Òô¡¹¼´¿ÉÆô¶¯¡£
 echo.
 pause
 exit /b 0
 
 :missing
-echo  [é”™è¯¯] ç¼ºå°‘å¿…è¦æ–‡ä»¶ï¼Œè¯·ç¡®è®¤æœ¬è„šæœ¬ä½äºæ‹¾éŸ³æ–‡ä»¶å¤¹æ ¹ç›®å½•ã€‚
+echo  [´íÎó] È±ÉÙ±ØÒªÎÄ¼ş£¬ÇëÈ·ÈÏ±¾½Å±¾Î»ÓÚÊ°ÒôÎÄ¼ş¼Ğ¸ùÄ¿Â¼¡£
 pause
 exit /b 1
 
 :fail
-echo  [é”™è¯¯] åˆ›å»ºå¿«æ·æ–¹å¼å¤±è´¥ï¼Œè¯·å³é”®æœ¬è„šæœ¬ã€Œä»¥ç®¡ç†å‘˜èº«ä»½è¿è¡Œã€é‡è¯•ã€‚
+echo  [´íÎó] ´´½¨¿ì½İ·½Ê½Ê§°Ü£¬ÇëÓÒ¼ü±¾½Å±¾¡¸ÒÔ¹ÜÀíÔ±Éí·İÔËĞĞ¡¹ÖØÊÔ¡£
 pause
 exit /b 1
