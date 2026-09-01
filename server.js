@@ -95,10 +95,11 @@ function run(cmd, args) {
   });
 }
 
-function runWhisper(inputWav, task) {
+function runWhisper(inputWav, task, outPrefix) {
   return new Promise((resolve, reject) => {
     const model = path.join(MODEL_DIR, activeModel);
-    const base = inputWav.replace(/\.wav$/, '');
+    // 输出前缀统一由调用方指定（WORK/id）——即使输入是媒体目录文件（重试场景），输出也写工作区，不污染媒体目录
+    const base = outPrefix || inputWav.replace(/\.wav$/, '');
     // 反幻觉参数（借鉴 WhisprRT）：temperature=0.0（默认）、禁用温度回退（-tpi 0）、no_speech 阈值 0.6
     // 加速：不开 -pp（词级时间戳用不上，省 15%+ 时间）；-t 8 线程（18 核 CPU，并发 2 时峰值 16 线程）
     const args = [
@@ -155,10 +156,9 @@ async function executeTask(task) {
     // 2. 识别
     task.status = 'transcribing';
     task.progress = 0;
-    await runWhisper(wavPath, task);
-    // 3. 读取结果 + 繁转简（whisper 中文输出偏繁体）
-    //    跳过转码时 whisper 输出写在 uploadPath 旁（base=uploadPath，无 .wav 后缀）
-    const resBase = skipConvert ? uploadPath : base;
+    await runWhisper(wavPath, task, base);
+    // 3. 读取结果 + 繁转简（whisper 中文输出偏繁体）；输出统一在 WORK/id.*（runWhisper 用 -of 指定）
+    const resBase = base;
     const read = (ext) => (fs.existsSync(resBase + ext) ? sify(fs.readFileSync(resBase + ext, 'utf8')) : '');
     let txt = read('.txt');
     let srt = read('.srt');
@@ -260,7 +260,10 @@ async function executeTask(task) {
       const mediaDir = path.join(MEDIA_DIR, task.id);
       fs.mkdirSync(mediaDir, { recursive: true });
       const mediaPath = path.join(mediaDir, task.id + ext);
-      await fs.promises.rename(uploadPath, mediaPath);
+      // 重试场景：uploadPath 已是媒体文件（同路径），不重复 rename
+      if (fs.existsSync(uploadPath) && path.resolve(uploadPath) !== path.resolve(mediaPath)) {
+        await fs.promises.rename(uploadPath, mediaPath);
+      }
       task.mediaUrl = '/media/' + task.id + '/' + task.id + ext;
       task.mediaType = /^(mp4|mkv|mov|avi|webm|flv|ts|m4v|wmv|3gp|ogv|mpg|mpeg)$/i.test(ext.slice(1)) ? 'video' : 'audio';
     } catch (e) {
@@ -280,14 +283,16 @@ async function executeTask(task) {
     const noSpeech = !txt.trim() || (lines.length > 0 && lines.every((l) => bracketOnly.test(l))) || isRepeatHallucination(txt);
     task.status = 'done';
     task.result = { text: txt, srt, vtt, file: task.fileName, noSpeech, model: activeModel, vad: !!task.useVad };
+    task.elapsedSec = Math.round((Date.now() - (task.startAt || Date.now())) / 1000);
   } catch (e) {
     task.status = 'failed';
     task.error = e.message;
   } finally {
-    // 成功时 upload 已 rename 进媒体目录（任务清理时一并删）；失败才清理 upload
-    if (task.status !== 'done') fs.promises.unlink(uploadPath).catch(() => {});
+    // 媒体目录内的文件（重试场景的输入）永不删除；失败时清理 upload（仅限非媒体目录临时文件）
+    const inMedia = (p) => String(p).startsWith(MEDIA_DIR);
+    if (task.status !== 'done' && !inMedia(task.uploadPath)) fs.promises.unlink(task.uploadPath).catch(() => {});
     for (const f of [wavPath, base + '.txt', base + '.srt', base + '.vtt']) {
-      fs.promises.unlink(f).catch(() => {});
+      if (!inMedia(f)) fs.promises.unlink(f).catch(() => {});
     }
   }
 }
@@ -311,7 +316,7 @@ function publicTask(t, full) {
   const base = {
     id: t.id, status: t.status, progress: t.progress,
     error: t.error, result: null, file: t.fileName, baseName: t.baseName,
-    sizeMB: t.sizeMB, model: t.model, createdAt: t.createdAt,
+    sizeMB: t.sizeMB, model: t.model, createdAt: t.createdAt, elapsedSec: t.elapsedSec,
     mediaUrl: t.mediaUrl, mediaType: t.mediaType, useVad: !!t.useVad,
   };
   if (t.result) {
@@ -460,6 +465,7 @@ app.post('/api/transcribe', (req, res) => {
     model: activeModel,
     uploadPath: req.file.path,
     useVad: !!(req.body && req.body.useVad),
+    startAt: Date.now(),
     createdAt: Date.now(),
   };
   tasks.set(id, task);
@@ -478,6 +484,25 @@ app.get('/api/task/:id', (req, res) => {
   const t = tasks.get(req.params.id);
   if (!t) return res.status(404).json({ error: '任务不存在' });
   res.json(publicTask(t, true));
+});
+
+// 失败任务重试：原始媒体文件仍在保留期内（2 小时）则重新入队转写
+app.post('/api/task/:id/retry', (req, res) => {
+  const t = tasks.get(req.params.id);
+  if (!t) return res.status(404).json({ error: '任务不存在' });
+  if (t.status !== 'failed') return res.status(400).json({ error: '只有失败的任务可以重试' });
+  const ext = path.extname(t.fileName).toLowerCase() || '';
+  const mediaPath = path.join(MEDIA_DIR, t.id, t.id + ext);
+  if (!fs.existsSync(mediaPath)) return res.status(400).json({ error: '原始音频已超过保留期（2 小时），请重新上传后再试' });
+  t.status = 'queued';
+  t.progress = 0;
+  t.error = null;
+  t.result = null;
+  t.uploadPath = mediaPath; // 直接复用保留的媒体文件（executeTask 会保护不删除）
+  t.startAt = Date.now();
+  queue.push(t.id);
+  pump();
+  res.json({ ok: true });
 });
 
 app.get('/api/models', (req, res) => {

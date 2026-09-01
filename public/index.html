@@ -5,18 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>拾音 · 本地音频/视频转文字</title>
 <meta name="theme-color" content="#55b3ee">
-<link rel="icon" href="/app-icon.ico">
+<link rel="icon" href="/app-icon.ico?v=3">
 <link rel="apple-touch-icon" href="/app-icon-512.png">
 <link rel="manifest" href="/manifest.json">
 <style>
   :root {
     --bg: #f4f6f9; --card: #ffffff; --ink: #26303c; --muted: #8792a3;
-    --brand: #3d7ec9; --brand-soft: #e8f1fb; --line: #e3e9f1;
+    --brand: #55b3ee; --brand-deep: #3f8fdc; --brand-soft: #e8f4fd; --line: #e3e9f1;
     --ok: #2e9e62; --warn: #d0882f; --err: #d0554a;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--ink); font-family: "Microsoft YaHei", system-ui, sans-serif; line-height: 1.6; }
-  header { background: linear-gradient(135deg, #35679e, #4f93d8); color: #fff; padding: 18px 28px; display: flex; align-items: center; gap: 14px; }
+  header { background: linear-gradient(135deg, #3f8fdc, #6ec1f2); color: #fff; padding: 18px 28px; display: flex; align-items: center; gap: 14px; }
   header .logo { font-size: 26px; }
   header h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
   header .sub { font-size: 12.5px; opacity: .85; margin-top: 1px; }
@@ -56,7 +56,7 @@
   .badge.done { background: #e2f5ea; color: var(--ok); }
   .badge.failed { background: #fbe9e7; color: var(--err); }
   .bar { height: 6px; background: #e9eef4; border-radius: 99px; margin-top: 9px; overflow: hidden; }
-  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4f93d8, #6fb1ec); border-radius: 99px; transition: width .5s; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #55b3ee, #7fd0f8); border-radius: 99px; transition: width .5s; }
   .task .result { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
   .rtabs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .rtab { font-size: 12px; padding: 3px 12px; border-radius: 999px; background: #f0f3f7; color: #5b6575; cursor: pointer; border: none; }
@@ -80,14 +80,14 @@
   .btn { font-size: 12px; padding: 4px 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; color: var(--ink); transition: all .15s; }
   .btn:hover { border-color: var(--brand); color: var(--brand); }
   .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
-  .btn.primary:hover { background: #356eb0; color: #fff; }
+  .btn.primary:hover { background: var(--brand-deep); color: #fff; }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
   .btn.sm { padding: 3px 10px; font-size: 11.5px; }
   .mstatus { font-size: 11px; margin-left: auto; }
   .mstatus.ok { color: var(--ok); }
   .mstatus.off { color: var(--muted); }
   .mbar { height: 5px; background: #e9eef4; border-radius: 99px; margin-top: 7px; overflow: hidden; }
-  .mbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #d0882f, #ecb168); transition: width .5s; }
+  .mbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #3f8fdc, #6ec1f2); transition: width .5s; }
   .mspeed { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
   .note { font-size: 12px; color: var(--muted); }
@@ -238,7 +238,7 @@ function saveHistory() {
     const slim = tasks
       .filter((t) => t.result)
       .slice(0, 10)
-      .map((t) => ({ id: t.id, file: t.file, baseName: t.baseName, status: t.status, error: t.error, result: t.result, model: t.model, sizeMB: t.sizeMB, time: t.time || Date.now(), mediaUrl: t.mediaUrl, mediaType: t.mediaType }));
+      .map((t) => ({ id: t.id, file: t.file, baseName: t.baseName, status: t.status, error: t.error, result: t.result, model: t.model, sizeMB: t.sizeMB, time: t.time || Date.now(), elapsedSec: t.elapsedSec, mediaUrl: t.mediaUrl, mediaType: t.mediaType }));
     localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
   } catch (e) { /* 超限/隐私模式，忽略 */ }
 }
@@ -332,6 +332,25 @@ fileInput.addEventListener('change', () => { uploadFiles([...fileInput.files]); 
 ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('drag'); }));
 drop.addEventListener('drop', (e) => uploadFiles([...e.dataTransfer.files]));
 
+// 全局拖拽：文件拖到页面任意位置都可上传（不只拖拽区），并给出视觉提示
+let dragDepth = 0;
+['dragover', 'dragenter'].forEach((ev) => document.addEventListener(ev, (e) => {
+  if (![...e.dataTransfer.types].includes('Files')) return;
+  e.preventDefault();
+  if (ev === 'dragenter') { dragDepth++; drop.classList.add('drag'); }
+}));
+document.addEventListener('dragleave', (e) => {
+  if (![...e.dataTransfer.types].includes('Files')) return;
+  if (--dragDepth <= 0) { dragDepth = 0; drop.classList.remove('drag'); }
+});
+document.addEventListener('drop', (e) => {
+  if (![...e.dataTransfer.types].includes('Files')) return;
+  e.preventDefault();
+  dragDepth = 0;
+  drop.classList.remove('drag');
+  if (e.dataTransfer.files.length) uploadFiles([...e.dataTransfer.files]);
+});
+
 // ---------- 任务轮询 ----------
 const pollFailCount = new Map(); // id -> 连续失败次数（服务未运行时提示）
 async function pollTask(id) {
@@ -347,11 +366,29 @@ async function pollTask(id) {
       if (j.status === 'done' || j.status === 'failed') {
         clearInterval(timer);
         taskTimers.delete(id);
+        pollFailCount.delete(id);
         if (j.result) saveHistory();
-        if (j.status === 'done' && j.result && !j.result.noSpeech) showToast('✅ 识别完成：' + (t ? t.file : ''));
+        if (j.status === 'done' && j.result && !j.result.noSpeech) {
+          showToast('✅ 识别完成：' + (t ? t.file : ''));
+          if (document.hidden) { // 页面在后台：标题闪烁提醒
+            document.title = '✅ 识别完成 · ' + (t ? t.file : '') + ' — 拾音';
+            setTimeout(() => { if (!document.hidden) document.title = '拾音 · 本地音频/视频转文字'; }, 6000);
+          }
+        }
         if (j.status === 'failed') showToast('❌ 识别失败：' + (j.error || ''));
       }
-    } catch { /* 服务重启等下次轮询 */ }
+    } catch {
+      // 网络/服务异常：连续失败 3 次提示服务未运行并停止轮询（避免无意义空转）
+      const n = (pollFailCount.get(id) || 0) + 1;
+      pollFailCount.set(id, n);
+      if (n >= 3) {
+        clearInterval(timer);
+        taskTimers.delete(id);
+        pollFailCount.delete(id);
+        headStatus.textContent = '服务未连接';
+        showToast('⚠️ 服务未运行？请双击「启动拾音.bat」再刷新页面');
+      }
+    }
   }, 1200);
   taskTimers.set(id, timer);
 }
@@ -404,11 +441,11 @@ function render() {
         </div>`;
       }
     }
-    const errHtml = t.status === 'failed' && t.error ? `<div class="errmsg">❌ ${esc(t.error)}</div>` : '';
+    const errHtml = t.status === 'failed' && t.error ? `<div class="errmsg">❌ ${esc(t.error)}<button class="btn sm" style="margin-left:8px" data-retry="${t.id}">↻ 重试</button></div>` : '';
     return `<div class="task" id="task-${t.id}">
       <div class="row1">
         <span class="fname" title="点击展开/收起结果" data-toggle="${t.id}">${esc(t.file)}</span>
-        <span class="fmeta">${t.sizeMB != null ? t.sizeMB + ' MB' : ''}${t.model ? ' · ' + shortModel(t.model) : ''}${t.useVad ? ' · 🧹 VAD' : ''}</span>
+        <span class="fmeta">${t.sizeMB != null ? t.sizeMB + ' MB' : ''}${t.model ? ' · ' + shortModel(t.model) : ''}${t.useVad ? ' · 🧹 VAD' : ''}${t.elapsedSec ? ' · 用时 ' + t.elapsedSec + 's' : ''}</span>
         ${st}
         <button class="delbtn" title="删除任务" data-del="${t.id}">✕</button>
       </div>
@@ -564,6 +601,23 @@ taskList.addEventListener('click', async (e) => {
   // 保存
   const sv = e.target.closest('[data-save]');
   if (sv) { openSavePanel(sv.dataset.save); return; }
+  // 失败重试：复用保留的原始媒体重新转写
+  const rt = e.target.closest('[data-retry]');
+  if (rt) {
+    const rid = rt.dataset.retry;
+    rt.disabled = true; rt.textContent = '重试中…';
+    try {
+      const r = await fetch('/api/task/' + rid + '/retry', { method: 'POST' });
+      const j = await r.json();
+      if (!r.ok) { showToast('❌ ' + (j.error || '重试失败')); rt.disabled = false; rt.textContent = '↻ 重试'; return; }
+      const tt = tasks.find((x) => x.id === rid);
+      if (tt) { tt.status = 'queued'; tt.progress = 0; tt.error = null; tt.result = null; }
+      render();
+      pollTask(rid);
+      showToast('🔄 已重新排队转写');
+    } catch { showToast('❌ 重试失败（服务未运行？）'); rt.disabled = false; rt.textContent = '↻ 重试'; }
+    return;
+  }
   // 字幕点击跳转（跟读 tab）
   const cue = e.target.closest('[data-cue]');
   if (cue) {
