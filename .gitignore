@@ -19,3 +19,7 @@ test-audio/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ---- 图标渲染中间产物（work-ico 为本地工作目录，不入库）----
+work-ico/
+

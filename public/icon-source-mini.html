@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>拾音图标源稿 v4-mini</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<!-- 拾音图标 v4 简化版（供 16/32px 小尺寸使用：去掉支架弧与细声波，只留胶囊麦克风 + 一道声波，防糊） -->
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#8fdcfa"/>
+      <stop offset="0.45" stop-color="#55b3ee"/>
+      <stop offset="1" stop-color="#3f8fdc"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.42"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="14" y="14" width="484" height="484" rx="120" fill="url(#bg)"/>
+  <rect x="14" y="14" width="484" height="230" rx="120" fill="url(#sheen)"/>
+  <path d="M 300 132 A 98 98 0 0 1 300 300" fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round" stroke-opacity="0.92"/>
+  <rect x="206" y="176" width="100" height="160" rx="50" fill="#ffffff"/>
+</svg>
+</body>
+</html>
