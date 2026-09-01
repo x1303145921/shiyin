@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>拾音 · 本地音频/视频转文字</title>
-<meta name="theme-color" content="#3d7ec9">
+<meta name="theme-color" content="#55b3ee">
 <link rel="icon" href="/app-icon.ico">
 <link rel="apple-touch-icon" href="/app-icon-512.png">
 <link rel="manifest" href="/manifest.json">
@@ -262,23 +262,66 @@ function vadEnabled() {
 // 支持的音视频扩展名（与后端 multer fileFilter 一致）
 const MEDIA_RE = /\.(mp3|wav|m4a|flac|aac|ogg|opus|wma|mp4|mkv|mov|avi|webm|flv|ts|m4v|wmv|3gp|ogv|mpg|mpeg|aiff|ape|amr)$/i;
 
+// 文本编辑即存：textarea 输入写回任务结果（保存文件时自动用最新内容）
+document.addEventListener('input', (e) => {
+  const ta = e.target.closest('textarea[data-tarea]');
+  if (!ta) return;
+  const t = tasks.find((x) => x.id === ta.dataset.tarea);
+  if (!t || !t.result) return;
+  const key = t._tab && t._tab !== 'read' ? t._tab : 'txt';
+  setResult(t, key, ta.value);
+  const rcount = ta.closest('.result')?.querySelector('.rcount');
+  if (rcount && ta.closest('.result').querySelector('.rtab.on')?.dataset.tab !== 'read') {
+    rcount.textContent = ta.value.length + ' 字 · 已编辑';
+  }
+});
+
 async function uploadFiles(files) {
   for (const f of files) {
     if (!f.size) continue;
     if (!MEDIA_RE.test(f.name)) { showToast('❌ 不支持的格式：' + f.name + '（常见音视频即可）'); continue; }
+    // 乐观任务先上卡片（带上传进度）
+    const tmpId = 'up-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    tasks.unshift({ id: tmpId, file: f.name, sizeMB: Math.round(f.size / 1048576 * 10) / 10, local: true, status: 'uploading', progress: 0 });
+    expanded.add(tmpId);
+    render();
     const fd = new FormData();
     fd.append('file', f);
     if (vadEnabled()) fd.append('useVad', '1');
     try {
-      const r = await fetch('/api/transcribe', { method: 'POST', body: fd });
-      const j = await r.json();
-      if (!r.ok) { showToast('❌ ' + (j.error || '上传失败')); continue; }
-      tasks.unshift({ id: j.taskId, file: f.name, sizeMB: Math.round(f.size / 1048576 * 10) / 10, local: true });
+      // XHR 上传（fetch 无上传进度事件）
+      const j = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/transcribe');
+        xhr.upload.onprogress = (ev) => {
+          if (!ev.lengthComputable) return;
+          const t = tasks.find((x) => x.id === tmpId);
+          if (t) { t.progress = Math.min(99, Math.round(ev.loaded / ev.total * 100)); render(); }
+        };
+        xhr.onload = () => {
+          let body = {};
+          try { body = JSON.parse(xhr.responseText); } catch {}
+          if (xhr.status >= 200 && xhr.status < 300 && body.taskId) resolve(body);
+          else reject(new Error(body.error || 'HTTP ' + xhr.status));
+        };
+        xhr.onerror = () => reject(new Error('网络错误（服务未运行？）'));
+        xhr.send(fd);
+      });
+      const t = tasks.find((x) => x.id === tmpId);
+      if (t) {
+        t.id = j.taskId;
+        t.status = 'queued';
+        t.progress = 0;
+      }
+      expanded.delete(tmpId);
       expanded.add(j.taskId);
       pollTask(j.taskId);
       render();
     } catch (e) {
-      showToast('❌ 上传失败: ' + e.message);
+      const idx = tasks.findIndex((x) => x.id === tmpId);
+      if (idx >= 0) tasks.splice(idx, 1);
+      render();
+      showToast('❌ 上传失败：' + e.message);
     }
   }
 }
@@ -290,6 +333,7 @@ fileInput.addEventListener('change', () => { uploadFiles([...fileInput.files]); 
 drop.addEventListener('drop', (e) => uploadFiles([...e.dataTransfer.files]));
 
 // ---------- 任务轮询 ----------
+const pollFailCount = new Map(); // id -> 连续失败次数（服务未运行时提示）
 async function pollTask(id) {
   if (taskTimers.has(id)) return;
   const timer = setInterval(async () => {
@@ -372,12 +416,26 @@ function render() {
       ${resultHtml}${errHtml}
     </div>`;
   }).join('');
+  // 列表接口裁剪了大字段（_trimmed）：展开的服务器任务按需拉详情补全 srt/vtt
+  tasks.forEach((t) => {
+    if (t.result && t.result._trimmed && !t.local && !t._detailFetched) {
+      t._detailFetched = true;
+      fetch('/api/task/' + t.id).then((r) => r.json()).then((j) => {
+        const cur = tasks.find((x) => x.id === t.id);
+        if (cur && j.result) {
+          cur.result = j.result;
+          cur.result._trimmed = false;
+          render();
+        }
+      }).catch(() => { t._detailFetched = false; });
+    }
+  });
   bindPlayers();
   modelTick();
 }
 
 function statusBadge(t) {
-  const map = { queued: ['排队中', 'queued'], preprocess: ['预处理', 'preprocess'], transcribing: ['识别中', 'transcribing'], done: ['完成', 'done'], failed: ['失败', 'failed'] };
+  const map = { uploading: ['上传中', 'queued'], queued: ['排队中', 'queued'], preprocess: ['预处理', 'preprocess'], transcribing: ['识别中', 'transcribing'], done: ['完成', 'done'], failed: ['失败', 'failed'] };
   const [label, cls] = map[t.status] || [t.status, 'queued'];
   return `<span class="badge ${cls}">${label}</span>`;
 }

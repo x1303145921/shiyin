@@ -160,9 +160,99 @@ async function executeTask(task) {
     //    跳过转码时 whisper 输出写在 uploadPath 旁（base=uploadPath，无 .wav 后缀）
     const resBase = skipConvert ? uploadPath : base;
     const read = (ext) => (fs.existsSync(resBase + ext) ? sify(fs.readFileSync(resBase + ext, 'utf8')) : '');
-    const txt = read('.txt');
-    const srt = read('.srt');
-    const vtt = read('.vtt');
+    let txt = read('.txt');
+    let srt = read('.srt');
+    let vtt = read('.vtt');
+    // 3.5 重复幻觉后处理：whisper 在长音频/模糊音频上偶尔会把一句话重复输出多次（"说一遍变十遍"），
+    //     这里合并时间上相邻、文本完全相同的段落（txt 按行去重；srt/vtt 解析 cue 去重后重新编号）
+    const norm = (s) => String(s).replace(/[\s，。！？、,.!?;；：:…"'“”‘’()（）\[\]【】-]/g, '').toLowerCase();
+    // 「A - A - A - A」或「A A A」整段同一词重复（whisper 对无语音段/模糊音频的典型幻觉）→ 收缩为单个
+    const shrinkRepeatWords = (text) => {
+      // 剥星号标记 + 只保留中日韩/字母数字（清掉 whisper 输出的 � 等噪音字节）
+      const cleaned = String(text).replace(/^\s*\*+\s*/, '');
+      const body = cleaned.replace(/[^\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7afA-Za-z0-9]/g, '');
+      // 整段为同一词（≥2 字符）重复 3 次以上 → 收缩为单个；1 字单元（哈哈哈/嗯嗯嗯）不动
+      const m = body.length >= 6 ? body.match(/^(.{2,}?)\1{2,}$/) : null;
+      if (m) return m[1];
+      return text;
+    };
+    const dedupe = (() => {
+      // srt/vtt 通用：解析 cue → 合并相邻相同 → 重新序列化
+      // text 形如: "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n内容\n\n..." 或 srt 带序号
+      function parseCues(text, isSrt) {
+        const cues = [];
+        const lines = String(text).split(/\r?\n/);
+        let i = 0;
+        while (i < lines.length) {
+          const l = lines[i].trim();
+          if (isSrt && /^\d+$/.test(l)) { i++; continue; } // srt 序号行
+          if (/-->/.test(l)) {
+            const time = l;
+            const buf = [];
+            i++;
+            while (i < lines.length && lines[i].trim() !== '') { buf.push(lines[i]); i++; }
+            cues.push({ time, text: buf.join('\n').trim() });
+          } else i++;
+        }
+        return cues;
+      }
+      function norm(s) { return String(s).replace(/[\s，。！？、,.!?;；：:…"'“”‘’()（）\[\]【】-]/g, '').toLowerCase(); }
+      function dedupeCues(cues, isSrt) {
+        const out = [];
+        let removed = 0;
+        let shrunk = false;
+        for (const c of cues) {
+          // 先收缩 cue 内重复词，再判相邻重复
+          const text = shrinkRepeatWords(c.text);
+          if (text !== c.text) shrunk = true;
+          const prev = out[out.length - 1];
+          if (prev && norm(prev.text) !== '' && norm(prev.text) === norm(text)) {
+            // 合并：保留前一条的起点 + 当前条的终点（时间轴连续），文本不变
+            const mergedTime = mergeTime(prev.time, c.time);
+            out[out.length - 1] = { time: mergedTime, text: prev.text };
+            removed++;
+          } else out.push({ time: c.time, text });
+        }
+        return { out, removed, shrunk };
+      }
+      function mergeTime(a, b) {
+        // a/b 均形如 "HH:MM:SS,mmm --> HH:MM:SS,mmm"（srt）或 ".mmm"（vtt），分隔符同为 " --> "
+        const start = String(a).split(' --> ')[0].trim();
+        const end = String(b).split(' --> ')[1].trim();
+        return start + ' --> ' + end;
+      }
+      function serialize(cues, isSrt, withHeader) {
+        let out = withHeader ? 'WEBVTT\n\n' : '';
+        cues.forEach((c, idx) => {
+          if (isSrt) out += idx + 1 + '\n';
+          out += c.time + '\n' + c.text + '\n\n';
+        });
+        return out;
+      }
+      return { parseCues, dedupeCues, serialize };
+    })();
+    if (srt) {
+      const r = dedupe.dedupeCues(dedupe.parseCues(srt, true), true);
+      // 有相邻去重或 cue 内收缩都重新序列化
+      srt = r.removed || r.shrunk ? dedupe.serialize(r.out, true, false) : srt;
+    }
+    if (vtt) {
+      const r = dedupe.dedupeCues(dedupe.parseCues(vtt, false), false);
+      vtt = r.removed || r.shrunk ? dedupe.serialize(r.out, false, true) : vtt;
+    }
+    if (txt) {
+      const tl = txt.split(/\r?\n/);
+      const out = [];
+      let changed = false;
+      for (const l of tl) {
+        const line = shrinkRepeatWords(l); // 收缩行内重复词幻觉（如「屁股 - 屁股 - 屁股」）
+        if (line !== l) changed = true;
+        const prev = out[out.length - 1];
+        if (prev && norm(prev) !== '' && norm(prev) === norm(line)) { changed = true; continue; }
+        out.push(line);
+      }
+      if (changed) txt = out.join('\n');
+    }
     // 4. 保留原始媒体供前端播放（字幕点击跳转）：移到 media/<taskId>/<taskId><ext>
     //    文件名用纯 ASCII（taskId 前缀），避免中文 URL 问题；原名已存在 task.fileName
     try {
@@ -216,13 +306,28 @@ function pump() {
   }
 }
 
-function publicTask(t) {
-  return {
+// full=true：详情接口返回完整 srt/vtt；列表接口默认裁剪大字段（30 任务 × 数百 KB 的 srt/vtt 会让 /api/tasks 变慢）
+function publicTask(t, full) {
+  const base = {
     id: t.id, status: t.status, progress: t.progress,
-    error: t.error, result: t.result, file: t.fileName, baseName: t.baseName,
+    error: t.error, result: null, file: t.fileName, baseName: t.baseName,
     sizeMB: t.sizeMB, model: t.model, createdAt: t.createdAt,
     mediaUrl: t.mediaUrl, mediaType: t.mediaType, useVad: !!t.useVad,
   };
+  if (t.result) {
+    const r = t.result;
+    base.result = {
+      file: r.file, noSpeech: r.noSpeech, model: r.model, vad: r.vad,
+      text: r.text,
+    };
+    if (full) {
+      base.result.srt = r.srt;
+      base.result.vtt = r.vtt;
+    } else {
+      base.result._trimmed = true; // 前端展开时按需拉详情
+    }
+  }
+  return base;
 }
 
 // ---------- 模型下载器（断点续传 + SHA256 尽力校验 + 单下载锁） ----------
@@ -365,14 +470,14 @@ app.post('/api/transcribe', (req, res) => {
 }); // app.post 结束
 
 app.get('/api/tasks', (req, res) => {
-  const list = [...tasks.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, 30).map(publicTask);
+  const list = [...tasks.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, 30).map((t) => publicTask(t, false));
   res.json({ list, running: running.length, queueLen: queue.length });
 });
 
 app.get('/api/task/:id', (req, res) => {
   const t = tasks.get(req.params.id);
   if (!t) return res.status(404).json({ error: '任务不存在' });
-  res.json(publicTask(t));
+  res.json(publicTask(t, true));
 });
 
 app.get('/api/models', (req, res) => {

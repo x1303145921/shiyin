@@ -28,3 +28,6 @@ exit /b 1
 echo  [错误] 创建快捷方式失败，请右键本脚本「以管理员身份运行」重试。
 pause
 exit /b 1
+
+:: 刷新图标缓存（防止旧白底图标残留显示）
+if exist "%SystemRoot%\System32\ie4uinit.exe" ie4uinit.exe -show >nul 2>&1
