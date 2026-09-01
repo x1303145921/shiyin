@@ -128,6 +128,11 @@
   .cue .ctext { flex: 1; word-break: break-all; }
   .cuenav { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
   .cuenav .cn-hint { font-size: 11.5px; color: var(--muted); flex: 1; }
+.cuesearch { font-size: 11.5px; padding: 3px 8px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); width: 120px; }
+.cuesearch:focus { outline: none; border-color: var(--brand); }
+.cuespeed { font-size: 11.5px; padding: 2px 4px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+.listsearch { font-size: 12px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); width: 130px; }
+.listsearch:focus { outline: none; border-color: var(--brand); }
   .cueempty { padding: 16px; text-align: center; color: var(--muted); font-size: 12.5px; }
 </style>
 </head>
@@ -157,6 +162,8 @@
     </div>
     <div class="listhead">
       <span class="lt" id="listTitle">任务列表</span>
+      <input class="listsearch" id="taskSearch" placeholder="🔍 搜文件名" title="按文件名搜索任务">
+      <button class="btn sm" id="sortBtn" title="切换排序：时间新→旧 / 旧→新">⏱ 新→旧</button>
       <button class="btn sm" id="clearDone" style="display:none">🗑 清空已完成</button>
     </div>
     <div id="taskList"></div>
@@ -218,6 +225,11 @@ const modelList = document.getElementById('modelList');
 const headStatus = document.getElementById('headStatus');
 const toast = document.getElementById('toast');
 const listTitle = document.getElementById('listTitle');
+// v0.4.1 打磨：任务搜索 + 排序
+let searchKw = '';
+let sortAsc = false;
+const taskSearch = document.getElementById('taskSearch');
+const sortBtn = document.getElementById('sortBtn');
 const clearDoneBtn = document.getElementById('clearDone');
 
 let tasks = [];
@@ -410,14 +422,17 @@ async function loadServerTasks() {
 function render() {
   const hasDone = tasks.some((t) => t.status === 'done' || t.status === 'failed');
   clearDoneBtn.style.display = hasDone ? '' : 'none';
-  listTitle.textContent = tasks.length ? `任务列表（${tasks.length}）` : '任务列表';
+  const view = tasks.filter((t) => !searchKw || t.file.toLowerCase().includes(searchKw));
+  if (sortAsc) view.sort((a, b) => a.createdAt - b.createdAt);
+  listTitle.textContent = tasks.length ? `任务列表（${view.length}/${tasks.length}）` : '任务列表';
+  sortBtn.textContent = sortAsc ? '⏱ 旧→新' : '⏱ 新→旧';
 
-  if (!tasks.length) {
-    taskList.innerHTML = '<div class="empty">还没有任务，拖入文件开始吧</div>';
+  if (!view.length) {
+    taskList.innerHTML = searchKw ? `<div class="empty">没有匹配「${esc(searchKw)}」的任务</div>` : '<div class="empty">还没有任务，拖入文件开始吧</div>';
     modelTick();
     return;
   }
-  taskList.innerHTML = tasks.map((t) => {
+  taskList.innerHTML = view.map((t) => {
     const st = statusBadge(t);
     const prog = t.status === 'preprocess' ? 8 : (t.progress || 0);
     let resultHtml = '';
@@ -468,6 +483,7 @@ function render() {
     }
   });
   bindPlayers();
+  bindCueExtras();
   modelTick();
 }
 
@@ -516,7 +532,7 @@ function renderReadTab(t) {
   const cuesHtml = cues.length
     ? cues.map((c, i) => `<div class="cue" data-cue="${i}" data-id="${t.id}"><span class="ctime">${fmtTime(c.start)}</span><span class="ctext">${esc(c.text)}</span></div>`).join('')
     : '<div class="cueempty">没有可用的字幕段落（SRT/VTT 均为空）</div>';
-  return `<div class="cuenav"><span class="cn-hint">▶ 点击任意字幕行即可从该处开始播放；播放时当前行自动高亮。空格键 播放/暂停。</span></div>${playerHtml}<div class="cuelist" id="cues-${t.id}">${cuesHtml}</div>`;
+  return `<div class="cuenav"><span class="cn-hint">▶ 点击字幕行跳转播放；空格 播放/暂停。</span><input class="cuesearch" data-cue-search="${t.id}" placeholder="🔍 搜字幕" title="按内容搜索字幕行"><select class="cuespeed" data-speed="${t.id}" title="播放速度"><option value="1">1x</option><option value="0.75">0.75x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></div>${playerHtml}<div class="cuelist" id="cues-${t.id}">${cuesHtml}</div>`;
 }
 function bindPlayers() {
   document.querySelectorAll('audio.player, video.player').forEach((p) => {
@@ -534,6 +550,44 @@ function bindPlayers() {
       msg.textContent = '⚠️ 媒体文件不可用（可能已超过保留期），播放联动失效，文字结果不受影响';
       if (wrap) wrap.insertBefore(msg, p.nextSibling);
       p.style.display = 'none';
+    });
+  });
+}
+// v0.4.1 打磨：字幕搜索 + 倍速
+function bindCueExtras() {
+  document.querySelectorAll('input[data-cue-search]').forEach((inp) => {
+    if (inp.dataset.bound) return;
+    inp.dataset.bound = '1';
+    inp.addEventListener('input', () => {
+      const id = inp.dataset.cueSearch;
+      const kw = inp.value.trim().toLowerCase();
+      const list = document.getElementById('cues-' + id);
+      const cues = cueCache.get(id) || [];
+      let shown = 0;
+      [...(list ? list.children : [])].forEach((el, i) => {
+        const hit = !kw || (cues[i] && cues[i].text.toLowerCase().includes(kw));
+        el.style.display = hit ? '' : 'none';
+        if (hit) shown++;
+      });
+      if (list) {
+        let emptyEl = list.querySelector('.cueempty');
+        if (kw && shown === 0 && !emptyEl) {
+          emptyEl = document.createElement('div');
+          emptyEl.className = 'cueempty';
+          emptyEl.textContent = '没有匹配的字幕行';
+          list.appendChild(emptyEl);
+        } else if (emptyEl && (shown > 0 || !kw)) {
+          emptyEl.remove();
+        }
+      }
+    });
+  });
+  document.querySelectorAll('select[data-speed]').forEach((sel) => {
+    if (sel.dataset.bound) return;
+    sel.dataset.bound = '1';
+    sel.addEventListener('change', () => {
+      const player = document.getElementById('player-' + sel.dataset.speed);
+      if (player) player.playbackRate = parseFloat(sel.value);
     });
   });
 }
@@ -646,6 +700,10 @@ taskList.addEventListener('click', async (e) => {
 });
 
 // 输入时实时更新字数
+// v0.4.1 打磨：任务搜索 + 排序事件
+taskSearch.addEventListener('input', () => { searchKw = taskSearch.value.trim().toLowerCase(); render(); });
+sortBtn.addEventListener('click', () => { sortAsc = !sortAsc; render(); });
+
 taskList.addEventListener('input', (e) => {
   const ta = e.target.closest('textarea[data-tarea]');
   if (!ta) return;
