@@ -8,49 +8,41 @@
 </style>
 </head>
 <body>
-<!-- 512x512 应用图标：蓝调渐变圆角方块 + 白色声波音符 -->
+<!-- 512x512 应用图标 v2：亮蓝渐变圆角方块（透明背景）+ 白色音符声波 -->
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3b7cc4"/>
-      <stop offset="0.55" stop-color="#4f93d8"/>
-      <stop offset="1" stop-color="#6fb1ec"/>
+      <stop offset="0" stop-color="#6fc0f2"/>
+      <stop offset="0.5" stop-color="#52a5e8"/>
+      <stop offset="1" stop-color="#3f8edc"/>
     </linearGradient>
-    <linearGradient id="glow" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0" stop-color="#2f6aa8" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#2f6aa8" stop-opacity="0"/>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
   </defs>
 
-  <!-- 圆角底 -->
-  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
-  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#glow)"/>
+  <!-- 圆角底：亮蓝渐变，圆角外为透明（无白底无边框） -->
+  <rect x="12" y="12" width="488" height="488" rx="118" fill="url(#bg)"/>
+  <!-- 顶部柔和高光 -->
+  <rect x="12" y="12" width="488" height="244" rx="118" fill="url(#sheen)"/>
 
-  <!-- 底部声波圆环（从音符扩散） -->
-  <g fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="14" stroke-linecap="round">
-    <path d="M 392 216 A 150 150 0 0 1 392 340"/>
-    <path d="M 410 196 A 175 175 0 0 1 410 360" stroke-opacity="0.18"/>
-    <path d="M 428 176 A 200 200 0 0 1 428 380" stroke-opacity="0.10"/>
+  <!-- 声波纹（从音符扩散，白色半透明，圆滑） -->
+  <g fill="none" stroke="#ffffff" stroke-linecap="round">
+    <path d="M 356 222 A 128 128 0 0 1 356 334" stroke-width="16" stroke-opacity="0.30"/>
+    <path d="M 376 202 A 152 152 0 0 1 376 354" stroke-width="14" stroke-opacity="0.20"/>
+    <path d="M 396 182 A 176 176 0 0 1 396 374" stroke-width="12" stroke-opacity="0.12"/>
   </g>
 
-  <!-- 音符（♪ 白） -->
+  <!-- 音符：白色，略放大更醒目 -->
   <g fill="#ffffff">
-    <ellipse cx="196" cy="352" rx="52" ry="38" transform="rotate(-18 196 352)"/>
-    <rect x="236" y="176" width="30" height="180" rx="15"/>
-    <rect x="236" y="196" width="104" height="30" rx="15" transform="rotate(-24 288 211)"/>
+    <ellipse cx="200" cy="356" rx="54" ry="40" transform="rotate(-18 200 356)"/>
+    <rect x="242" y="168" width="34" height="192" rx="17"/>
+    <path d="M 242 190 Q 316 178 348 150 Q 316 206 276 214 Z"/>
   </g>
 
-  <!-- 音符高光 -->
-  <ellipse cx="176" cy="340" rx="18" ry="11" fill="#ffffff" opacity="0.35" transform="rotate(-18 176 340)"/>
-
-  <!-- 右上角小鲸鱼尾巴 -->
-  <g fill="#ffffff" opacity="0.92">
-    <path d="M 366 96 C 366 96 352 132 330 146 C 354 150 372 138 372 138 C 372 138 388 124 384 106 C 380 92 366 96 366 96 Z"/>
-    <path d="M 330 146 C 318 152 310 162 308 172 C 322 170 330 160 330 146 Z"/>
-  </g>
-
-  <!-- 底部中文水印 -->
-  <text x="256" y="452" font-family="Microsoft YaHei, sans-serif" font-size="44" font-weight="700" fill="#ffffff" opacity="0.95" text-anchor="middle">拾音</text>
+  <!-- 底部小圆点（声波起点，点睛） -->
+  <circle cx="200" cy="356" r="14" fill="#ffffff" fill-opacity="0.85"/>
 </svg>
 </body>
 </html>

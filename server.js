@@ -26,6 +26,7 @@ const MEDIA_DIR = path.join(WORK, 'media'); // 转写完成后保留的原始媒
 const VAD_MODEL = 'ggml-silero-v6.2.0.bin'; // Silero VAD（跳过静音段）
 const WHISPER = path.join(ROOT, 'bin', 'Release', 'whisper-cli.exe');
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
+const FFPROBE = process.env.FFPROBE || 'ffprobe';
 const PORT = parseInt(process.env.PORT || '18900', 10);
 const HOST = process.env.BIND || '127.0.0.1';
 const HF_MIRROR = 'https://hf-mirror.com/ggerganov/whisper.cpp/resolve/main';
@@ -67,6 +68,12 @@ app.use(express.json());
 const upload = multer({
   dest: path.join(WORK, 'uploads'),
   limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2GB 上限
+  // 粗筛：只收常见音视频扩展名（避免 txt/zip 等排进队后 ffmpeg 报模糊错误）
+  fileFilter: (req, file, cb) => {
+    const ok = /\.(mp3|wav|m4a|flac|aac|ogg|opus|wma|mp4|mkv|mov|avi|webm|flv|ts|m4v|wmv|3gp|ogv|mpg|mpeg|aiff|ape|amr)$/i.test(file.originalname);
+    if (!ok) return cb(new Error('不支持的格式：' + (file.originalname || '未命名') + '（支持常见音视频：mp3/wav/m4a/flac/mp4/mkv/mov…）'));
+    cb(null, true);
+  },
 });
 
 // ---------- 任务队列（并发 2，批量排队） ----------
@@ -124,18 +131,35 @@ function runWhisper(inputWav, task) {
 
 async function executeTask(task) {
   const uploadPath = task.uploadPath;
-  const wavPath = path.join(WORK, task.id + '.wav');
+  let wavPath = path.join(WORK, task.id + '.wav');
   const base = path.join(WORK, task.id);
   try {
+    // 0. 已是 whisper 输入格式（16kHz 单声道 WAV）？直接跳过转码（音频上传最省时的场景）
+    //    ffprobe 秒级探测；仅 .wav 值得探测（mp3/flac/视频一律走 ffmpeg）
+    let skipConvert = false;
+    if (path.extname(task.fileName).toLowerCase() === '.wav') {
+      try {
+        const probe = await run(FFPROBE, ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=sample_rate,channels', '-of', 'csv=p=0', uploadPath]);
+        const m = probe.trim().match(/^(\d+),(\d+)$/);
+        if (m && m[1] === '16000' && m[2] === '1') {
+          wavPath = uploadPath; // 直接用原文件喂 whisper（输出文件写在 uploadPath 旁）
+          skipConvert = true;
+        }
+      } catch { /* 探测失败走正常转码 */ }
+    }
     // 1. 预处理：16kHz 单声道 WAV（whisper 硬性要求），视频自动抽音轨
     task.status = 'preprocess';
-    await run(FFMPEG, ['-y', '-v', 'error', '-i', uploadPath, '-vn', '-ac', '1', '-ar', '16000', wavPath]);
+    if (!skipConvert) {
+      await run(FFMPEG, ['-y', '-v', 'error', '-i', uploadPath, '-vn', '-ac', '1', '-ar', '16000', wavPath]);
+    }
     // 2. 识别
     task.status = 'transcribing';
     task.progress = 0;
     await runWhisper(wavPath, task);
     // 3. 读取结果 + 繁转简（whisper 中文输出偏繁体）
-    const read = (ext) => (fs.existsSync(base + ext) ? sify(fs.readFileSync(base + ext, 'utf8')) : '');
+    //    跳过转码时 whisper 输出写在 uploadPath 旁（base=uploadPath，无 .wav 后缀）
+    const resBase = skipConvert ? uploadPath : base;
+    const read = (ext) => (fs.existsSync(resBase + ext) ? sify(fs.readFileSync(resBase + ext, 'utf8')) : '');
     const txt = read('.txt');
     const srt = read('.srt');
     const vtt = read('.vtt');
@@ -302,8 +326,14 @@ function safeBaseName(name) {
   return cleaned.replace(/\.[^.]+$/, '');
 }
 
-app.post('/api/transcribe', upload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: '没有收到文件' });
+app.post('/api/transcribe', (req, res) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      // multer 错误（格式拒绝 / 超 2GB）→ 4xx 友好提示
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? '文件超过 2GB 上限' : (err.message || '上传失败');
+      return res.status(400).json({ error: msg });
+    }
+    if (!req.file) return res.status(400).json({ error: '没有收到文件' });
   const envMissing = [];
   if (!fs.existsSync(WHISPER)) envMissing.push('引擎缺失');
   if (!fs.existsSync(path.join(MODEL_DIR, activeModel))) envMissing.push(`模型未下载：${activeModel}`);
@@ -331,7 +361,8 @@ app.post('/api/transcribe', upload.single('file'), (req, res) => {
   queue.push(id);
   pump();
   res.json({ taskId: id });
-});
+  }); // upload.single 回调结束
+}); // app.post 结束
 
 app.get('/api/tasks', (req, res) => {
   const list = [...tasks.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, 30).map(publicTask);

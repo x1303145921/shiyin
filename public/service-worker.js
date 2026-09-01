@@ -1,5 +1,5 @@
 /* 拾音 Service Worker —— 只缓存界面静态资源（转写功能走本地服务，不受影响） */
-const CACHE = 'shiyin-v1';
+const CACHE = 'shiyin-v2'; // v2: 图标换新版（透明背景）
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
