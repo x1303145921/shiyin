@@ -111,9 +111,8 @@ node --check scripts/build-ico.js
 # 启动开发服务
 npm start
 
-# 重新渲染图标（改 public/icon-source.html 后）：
-#   主图：node scripts/render-icon.js public/icon-source.html work-ico/full-512.png 512
-#   简化图（16/32px）：node scripts/render-icon.js public/icon-source-mini.html work-ico/mini-512.png 512
+# 图标（用户提供的麦克风图标，源文件 public/icon-source.webp）：
+#   缩放各尺寸（ffmpeg lanczos）→ 打包 ICO：node scripts/build-ico.js work-ico public/app-icon.ico 16,32,48,64,128,256
 #   缩放各尺寸（ffmpeg）→ 打包 ICO：node scripts/build-ico.js work-ico public/app-icon.ico 16,32,48,64,128,256
 #   （渲染/打包链路细节见 scripts/ 内文件头注释与 CHANGELOG v0.4.0）
 ```
@@ -127,8 +126,7 @@ npm start
 │   ├── index.html          # 主页面（拖拽上传/任务卡片/模型面板/跟读播放器）
 │   ├── service-worker.js   # PWA 缓存（shiyin-v4，图标换新需 bump 版本）
 │   ├── manifest.json       # PWA 清单（名称/主题色/图标）
-│   └── icon-source.html    # 图标 SVG 源稿（全细节版）
-│   └── icon-source-mini.html # 图标 SVG 源稿（16/32px 简化版）
+│   └── icon-source.webp    # 图标源文件（用户提供，麦克风图标）
 ├── scripts/                # 工具脚本
 │   ├── render-icon.js      # CDP 透明背景图标渲染（零依赖，Node 21+）
 │   └── build-ico.js        # 手写 ICO 打包（ICONDIR + PNG 条目）

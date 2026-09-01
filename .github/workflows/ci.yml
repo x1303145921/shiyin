@@ -34,7 +34,7 @@ jobs:
       - name: Check essential files exist
         run: |
           for f in "public/index.html" "public/manifest.json" "public/service-worker.js" \
-                   "public/app-icon.ico" "public/icon-source.html" "public/icon-source-mini.html" \
+                   "public/app-icon.ico" "public/icon-source.webp" \
                    "README.md" "README.en.md" "README.txt" "LICENSE" "CHANGELOG.md" \
                    "CONTRIBUTING.md" "SECURITY.md" "RELEASE.md" "THIRD-PARTY-NOTICES.txt" \
                    "CODE_OF_CONDUCT.md" "pull_request_template.md" ".editorconfig" \

@@ -101,7 +101,7 @@ shiyin/
 │   ├── index.html          # Main page (drag-drop/task cards/model panel/follow-along player)
 │   ├── service-worker.js   # PWA cache (shiyin-v4)
 │   ├── manifest.json       # PWA manifest
-│   └── icon-source*.html   # Icon SVG sources (full & mini)
+│   └── icon-source.webp   # Icon source file (mic icon)
 ├── scripts/                # render-icon.js (CDP transparent render) / build-ico.js (ICO packer)
 ├── assets/                 # Screenshots & visuals
 ├── 启动拾音.bat / 停止拾音.bat / 安装到桌面.bat
