@@ -1,0 +1,26 @@
+{
+  "name": "shiyin",
+  "version": "0.3.0",
+  "description": "拾音 - 纯本地音频转文字工具（语音识别 ASR），基于 whisper.cpp，文件不出电脑",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "whisper",
+    "asr",
+    "speech-to-text",
+    "self-hosted",
+    "voice"
+  ],
+  "author": "颜 (x1303145921)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "chinese-conv": "^1.0.2",
+    "express": "^5.2.1",
+    "multer": "^2.3.0"
+  }
+}

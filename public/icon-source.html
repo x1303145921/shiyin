@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>拾音图标源稿</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; }
+</style>
+</head>
+<body>
+<!-- 512x512 应用图标：蓝调渐变圆角方块 + 白色声波音符 -->
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b7cc4"/>
+      <stop offset="0.55" stop-color="#4f93d8"/>
+      <stop offset="1" stop-color="#6fb1ec"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#2f6aa8" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#2f6aa8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角底 -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#glow)"/>
+
+  <!-- 底部声波圆环（从音符扩散） -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="14" stroke-linecap="round">
+    <path d="M 392 216 A 150 150 0 0 1 392 340"/>
+    <path d="M 410 196 A 175 175 0 0 1 410 360" stroke-opacity="0.18"/>
+    <path d="M 428 176 A 200 200 0 0 1 428 380" stroke-opacity="0.10"/>
+  </g>
+
+  <!-- 音符（♪ 白） -->
+  <g fill="#ffffff">
+    <ellipse cx="196" cy="352" rx="52" ry="38" transform="rotate(-18 196 352)"/>
+    <rect x="236" y="176" width="30" height="180" rx="15"/>
+    <rect x="236" y="196" width="104" height="30" rx="15" transform="rotate(-24 288 211)"/>
+  </g>
+
+  <!-- 音符高光 -->
+  <ellipse cx="176" cy="340" rx="18" ry="11" fill="#ffffff" opacity="0.35" transform="rotate(-18 176 340)"/>
+
+  <!-- 右上角小鲸鱼尾巴 -->
+  <g fill="#ffffff" opacity="0.92">
+    <path d="M 366 96 C 366 96 352 132 330 146 C 354 150 372 138 372 138 C 372 138 388 124 384 106 C 380 92 366 96 366 96 Z"/>
+    <path d="M 330 146 C 318 152 310 162 308 172 C 322 170 330 160 330 146 Z"/>
+  </g>
+
+  <!-- 底部中文水印 -->
+  <text x="256" y="452" font-family="Microsoft YaHei, sans-serif" font-size="44" font-weight="700" fill="#ffffff" opacity="0.95" text-anchor="middle">拾音</text>
+</svg>
+</body>
+</html>

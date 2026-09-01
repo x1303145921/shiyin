@@ -1,0 +1,17 @@
+{
+  "name": "拾音 · 本地音频/视频转文字",
+  "short_name": "拾音",
+  "description": "纯本地离线运行的音频/视频转文字工具，基于 whisper.cpp，文件不出电脑",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f9",
+  "theme_color": "#3d7ec9",
+  "icons": [
+    { "src": "/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/app-icon.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "/app-icon.ico", "sizes": "16x16 32x32 48x48 64x64 128x128 256x256", "type": "image/x-icon" }
+  ]
+}

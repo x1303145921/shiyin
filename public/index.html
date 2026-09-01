@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拾音 · 本地音频/视频转文字</title>
+<meta name="theme-color" content="#3d7ec9">
+<link rel="icon" href="/app-icon.ico">
+<link rel="apple-touch-icon" href="/app-icon-512.png">
+<link rel="manifest" href="/manifest.json">
+<style>
+  :root {
+    --bg: #f4f6f9; --card: #ffffff; --ink: #26303c; --muted: #8792a3;
+    --brand: #3d7ec9; --brand-soft: #e8f1fb; --line: #e3e9f1;
+    --ok: #2e9e62; --warn: #d0882f; --err: #d0554a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: "Microsoft YaHei", system-ui, sans-serif; line-height: 1.6; }
+  header { background: linear-gradient(135deg, #35679e, #4f93d8); color: #fff; padding: 18px 28px; display: flex; align-items: center; gap: 14px; }
+  header .logo { font-size: 26px; }
+  header h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+  header .sub { font-size: 12.5px; opacity: .85; margin-top: 1px; }
+  header .spacer { flex: 1; }
+  header .status { font-size: 12.5px; background: rgba(255,255,255,.15); padding: 4px 12px; border-radius: 999px; }
+  .wrap { display: flex; gap: 18px; padding: 18px; max-width: 1280px; margin: 0 auto; align-items: flex-start; }
+  .main { flex: 2.2; min-width: 0; }
+  .side { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 14px; position: sticky; top: 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .card h2 { font-size: 15px; margin-bottom: 12px; color: var(--brand); }
+
+  /* 拖拽区 */
+  #drop { border: 2px dashed #b9c9dd; border-radius: 14px; background: #fbfcfe; padding: 30px 20px; text-align: center; cursor: pointer; transition: all .18s; }
+  #drop:hover { border-color: var(--brand); background: var(--brand-soft); }
+  #drop.drag { border-color: var(--brand); background: var(--brand-soft); transform: scale(1.01); }
+  #drop .big { font-size: 34px; }
+  #drop .t1 { font-size: 15px; font-weight: 600; margin-top: 6px; }
+  #drop .t2 { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  #drop .t3 { font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+  /* 任务区头部 */
+  .listhead { display: flex; align-items: center; gap: 10px; margin: 14px 2px 0; }
+  .listhead .lt { font-size: 13px; color: var(--muted); flex: 1; }
+
+  /* 任务列表 */
+  .task { border: 1px solid var(--line); border-radius: 12px; padding: 13px 16px; margin-top: 10px; background: var(--card); transition: box-shadow .18s, border-color .18s; }
+  .task:hover { border-color: #c9d8ea; box-shadow: 0 3px 12px rgba(50,90,140,.07); }
+  .task .row1 { display: flex; align-items: center; gap: 10px; }
+  .task .fname { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; cursor: pointer; }
+  .task .fname:hover { color: var(--brand); }
+  .task .fmeta { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+  .delbtn { border: none; background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 3px; border-radius: 6px; }
+  .delbtn:hover { color: var(--err); background: #fbe9e7; }
+  .badge { font-size: 11.5px; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .badge.queued { background: #eef1f5; color: #5b6575; }
+  .badge.preprocess, .badge.transcribing { background: var(--brand-soft); color: var(--brand); }
+  .badge.done { background: #e2f5ea; color: var(--ok); }
+  .badge.failed { background: #fbe9e7; color: var(--err); }
+  .bar { height: 6px; background: #e9eef4; border-radius: 99px; margin-top: 9px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #4f93d8, #6fb1ec); border-radius: 99px; transition: width .5s; }
+  .task .result { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 10px; }
+  .rtabs { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .rtab { font-size: 12px; padding: 3px 12px; border-radius: 999px; background: #f0f3f7; color: #5b6575; cursor: pointer; border: none; }
+  .rtab.on { background: var(--brand); color: #fff; }
+  .rtab.act { background: transparent; border: 1px solid var(--line); }
+  .rtab.act:hover { border-color: var(--brand); color: var(--brand); }
+  .rtabs .grow { flex: 1; }
+  .rcount { font-size: 11.5px; color: var(--muted); }
+  .task textarea { width: 100%; min-height: 160px; max-height: 340px; background: #f7f9fc; border: 1px solid var(--line); border-radius: 10px; padding: 12px; font-size: 13px; line-height: 1.8; margin-top: 8px; resize: vertical; font-family: inherit; color: var(--ink); }
+  .task textarea:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
+  .nospeech { color: var(--warn); font-size: 13px; margin-top: 8px; }
+  .task .errmsg { color: var(--err); font-size: 12.5px; margin-top: 8px; }
+  .empty { text-align: center; color: var(--muted); font-size: 13px; padding: 26px 0; }
+
+  /* 模型管理 */
+  .model { border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; margin-bottom: 9px; }
+  .model.active { border-color: var(--brand); background: var(--brand-soft); }
+  .model .mname { font-size: 13px; font-weight: 600; font-family: Consolas, monospace; word-break: break-all; }
+  .model .minfo { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .model .mrow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .btn { font-size: 12px; padding: 4px 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; color: var(--ink); transition: all .15s; }
+  .btn:hover { border-color: var(--brand); color: var(--brand); }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .btn.primary:hover { background: #356eb0; color: #fff; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.sm { padding: 3px 10px; font-size: 11.5px; }
+  .mstatus { font-size: 11px; margin-left: auto; }
+  .mstatus.ok { color: var(--ok); }
+  .mstatus.off { color: var(--muted); }
+  .mbar { height: 5px; background: #e9eef4; border-radius: 99px; margin-top: 7px; overflow: hidden; }
+  .mbar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #d0882f, #ecb168); transition: width .5s; }
+  .mspeed { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  .note { font-size: 12px; color: var(--muted); }
+  .note li { margin: 5px 0; list-style: none; }
+  .note li::before { content: "· "; color: var(--brand); font-weight: 700; }
+  .tip { font-size: 11.5px; color: var(--muted); text-align: center; margin-top: 12px; }
+  .toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); background: #2b3645; color: #fff; padding: 10px 22px; border-radius: 10px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 99; }
+  .toast.show { opacity: 1; }
+
+  /* 保存对话框 */
+  .modal-mask { position: fixed; inset: 0; background: rgba(20,28,40,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal-mask.show { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 22px 26px; width: 420px; max-width: calc(100vw - 40px); box-shadow: 0 18px 50px rgba(20,28,40,.28); }
+  .modal h3 { font-size: 16px; margin-bottom: 16px; }
+  .srow { margin-bottom: 14px; }
+  .srow label.slbl { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 5px; }
+  .srow input[type=text] { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 13.5px; }
+  .srow input[type=text]:focus { outline: 2px solid var(--brand-soft); border-color: var(--brand); }
+  .fmtopts { display: flex; gap: 14px; flex-wrap: wrap; }
+  .fmtopts label { font-size: 13px; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  .fmtopts input { accent-color: var(--brand); }
+  .shint { font-size: 11.5px; color: var(--muted); background: var(--brand-soft); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; }
+  .sbtns { display: flex; justify-content: flex-end; gap: 10px; }
+
+  /* v0.3 播放器与字幕跟读 */
+  .vadopt { margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+  .vadopt label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .vadopt input { accent-color: var(--brand); }
+  .vadopt .vhint { font-size: 11.5px; color: var(--warn); margin-left: 4px; }
+  .player { width: 100%; margin-top: 8px; border-radius: 10px; background: #f0f3f7; }
+  video.player { max-height: 260px; }
+  .cuelist { margin-top: 8px; max-height: 300px; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; background: #f7f9fc; }
+  .cue { display: flex; gap: 10px; padding: 7px 12px; border-bottom: 1px solid #eef2f7; cursor: pointer; font-size: 13px; line-height: 1.55; }
+  .cue:last-child { border-bottom: none; }
+  .cue:hover { background: var(--brand-soft); }
+  .cue.on { background: #dcebfc; box-shadow: inset 3px 0 0 var(--brand); }
+  .cue .ctime { color: var(--brand); font-family: Consolas, monospace; font-size: 12px; white-space: nowrap; padding-top: 1px; }
+  .cue .ctext { flex: 1; word-break: break-all; }
+  .cuenav { margin-top: 8px; display: flex; gap: 8px; align-items: center; }
+  .cuenav .cn-hint { font-size: 11.5px; color: var(--muted); flex: 1; }
+  .cueempty { padding: 16px; text-align: center; color: var(--muted); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">🐋</span>
+  <div>
+    <h1>拾音</h1>
+    <div class="sub">本地音频 / 视频转文字 · whisper.cpp · 文件不出电脑</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="status" id="headStatus">连接中…</span>
+</header>
+
+<div class="wrap">
+  <div class="main">
+    <div id="drop">
+      <div class="big">📥</div>
+      <div class="t1">拖入音频 / 视频文件，或点击选择</div>
+      <div class="t2">支持 mp3 wav m4a flac mp4 … 多文件批量排队识别</div>
+      <div class="t3">文件仅在本地处理，不会上传到任何服务器</div>
+    </div>
+    <input type="file" id="fileInput" multiple accept="audio/*,video/*,.mp3,.wav,.m4a,.flac,.aac,.ogg,.wma,.mp4,.mkv,.mov,.avi,.flv,.ts" style="display:none">
+    <div class="vadopt">
+      <label title="用静音检测模型跳过静音段：长音频/播客更快，减少环境声幻觉"><input type="checkbox" id="useVad"> 🧹 跳过静音段（VAD，长音频更快）<span class="vhint" id="vadHint" style="display:none">需先下载静音检测模型</span></label>
+    </div>
+    <div class="listhead">
+      <span class="lt" id="listTitle">任务列表</span>
+      <button class="btn sm" id="clearDone" style="display:none">🗑 清空已完成</button>
+    </div>
+    <div id="taskList"></div>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <h2>🧠 识别模型</h2>
+      <div id="modelList"></div>
+    </div>
+    <div class="card">
+      <h2>💡 小贴士</h2>
+      <ul class="note">
+        <li>识别结果自动转为简体中文，可在文本框里直接修改</li>
+        <li>保存时可选 txt / srt / vtt 格式、自定义文件名、选择保存位置</li>
+        <li>无语音片段会标记「未检测到语音」，不产生空结果</li>
+        <li>结果自动保存在本浏览器，刷新页面不丢失</li>
+        <li>服务仅监听本机（127.0.0.1），放心使用</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 保存对话框 -->
+<div class="modal-mask" id="saveMask">
+  <div class="modal">
+    <h3>💾 保存转写结果</h3>
+    <div class="srow">
+      <label class="slbl">文件名（默认 = 音视频文件名，可修改）</label>
+      <input type="text" id="saveName" spellcheck="false">
+    </div>
+    <div class="srow">
+      <label class="slbl">格式</label>
+      <div class="fmtopts" id="saveFmt">
+        <label><input type="radio" name="sfmt" value="txt" checked> .txt 纯文本</label>
+        <label><input type="radio" name="sfmt" value="srt"> .srt 字幕</label>
+        <label><input type="radio" name="sfmt" value="vtt"> .vtt 字幕</label>
+      </div>
+    </div>
+    <p class="shint" id="saveLocHint"></p>
+    <div class="srow">
+      <button class="btn sm" id="pickDir">📁 选择文件夹并记住</button>
+      <button class="btn sm" id="forgetDir" style="display:none">清除记忆</button>
+    </div>
+    <div class="sbtns">
+      <button class="btn" id="saveCancel">取消</button>
+      <button class="btn primary" id="saveGo">保存到本地</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const taskList = document.getElementById('taskList');
+const modelList = document.getElementById('modelList');
+const headStatus = document.getElementById('headStatus');
+const toast = document.getElementById('toast');
+const listTitle = document.getElementById('listTitle');
+const clearDoneBtn = document.getElementById('clearDone');
+
+let tasks = [];
+let expanded = new Set();
+let taskTimers = new Map();
+const HISTORY_KEY = 'shiyin-history-v1';
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.remove('show'), 2400);
+}
+
+// ---------- 历史记录（localStorage）----------
+function saveHistory() {
+  try {
+    const slim = tasks
+      .filter((t) => t.result)
+      .slice(0, 10)
+      .map((t) => ({ id: t.id, file: t.file, baseName: t.baseName, status: t.status, error: t.error, result: t.result, model: t.model, sizeMB: t.sizeMB, time: t.time || Date.now(), mediaUrl: t.mediaUrl, mediaType: t.mediaType }));
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
+  } catch (e) { /* 超限/隐私模式，忽略 */ }
+}
+function loadHistory() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    for (const t of arr) {
+      if (!tasks.some((x) => x.id === t.id)) {
+        tasks.push(t);
+        if (t.result) expanded.add(t.id);
+      }
+    }
+  } catch (e) {}
+}
+
+// ---------- 上传 ----------
+function vadEnabled() {
+  const cb = document.getElementById('useVad');
+  return !!(cb && cb.checked && !cb.disabled);
+}
+async function uploadFiles(files) {
+  for (const f of files) {
+    if (!f.size) continue;
+    const fd = new FormData();
+    fd.append('file', f);
+    if (vadEnabled()) fd.append('useVad', '1');
+    try {
+      const r = await fetch('/api/transcribe', { method: 'POST', body: fd });
+      const j = await r.json();
+      if (!r.ok) { showToast('❌ ' + (j.error || '上传失败')); continue; }
+      tasks.unshift({ id: j.taskId, file: f.name, sizeMB: Math.round(f.size / 1048576 * 10) / 10, local: true });
+      expanded.add(j.taskId);
+      pollTask(j.taskId);
+      render();
+    } catch (e) {
+      showToast('❌ 上传失败: ' + e.message);
+    }
+  }
+}
+
+drop.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => { uploadFiles([...fileInput.files]); fileInput.value = ''; });
+['dragover', 'dragenter'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('drag'); }));
+['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('drag'); }));
+drop.addEventListener('drop', (e) => uploadFiles([...e.dataTransfer.files]));
+
+// ---------- 任务轮询 ----------
+async function pollTask(id) {
+  if (taskTimers.has(id)) return;
+  const timer = setInterval(async () => {
+    try {
+      const r = await fetch('/api/task/' + id);
+      if (!r.ok) { clearInterval(timer); taskTimers.delete(id); render(); return; }
+      const j = await r.json();
+      const t = tasks.find((x) => x.id === id);
+      if (t) Object.assign(t, j);
+      render();
+      if (j.status === 'done' || j.status === 'failed') {
+        clearInterval(timer);
+        taskTimers.delete(id);
+        if (j.result) saveHistory();
+        if (j.status === 'done' && j.result && !j.result.noSpeech) showToast('✅ 识别完成：' + (t ? t.file : ''));
+        if (j.status === 'failed') showToast('❌ 识别失败：' + (j.error || ''));
+      }
+    } catch { /* 服务重启等下次轮询 */ }
+  }, 1200);
+  taskTimers.set(id, timer);
+}
+
+async function loadServerTasks() {
+  try {
+    const r = await fetch('/api/tasks');
+    const j = await r.json();
+    headStatus.textContent = '服务正常 · 排队 ' + j.queueLen;
+    for (const t of j.list) {
+      if (!tasks.some((x) => x.id === t.id)) tasks.push(t);
+      if (t.status === 'queued' || t.status === 'preprocess' || t.status === 'transcribing') pollTask(t.id);
+    }
+    render();
+  } catch { headStatus.textContent = '服务未连接'; }
+}
+
+// ---------- 渲染 ----------
+function render() {
+  const hasDone = tasks.some((t) => t.status === 'done' || t.status === 'failed');
+  clearDoneBtn.style.display = hasDone ? '' : 'none';
+  listTitle.textContent = tasks.length ? `任务列表（${tasks.length}）` : '任务列表';
+
+  if (!tasks.length) {
+    taskList.innerHTML = '<div class="empty">还没有任务，拖入文件开始吧</div>';
+    modelTick();
+    return;
+  }
+  taskList.innerHTML = tasks.map((t) => {
+    const st = statusBadge(t);
+    const prog = t.status === 'preprocess' ? 8 : (t.progress || 0);
+    let resultHtml = '';
+    if (t.result) {
+      if (t.result.noSpeech) {
+        resultHtml = '<div class="nospeech">🤫 未检测到语音（可能是纯音乐 / 环境声 / 空白）——下方为识别到的内容，可手动确认</div><textarea data-tarea="' + t.id + '" spellcheck="false">' + esc(getResult(t, 'txt')) + '</textarea>';
+      } else {
+        const tabs = [['txt', '全文'], ['read', '📖 跟读'], ['srt', 'SRT 字幕'], ['vtt', 'VTT 字幕']];
+        let curTab = t._tab || 'txt';
+        if (curTab === 'read' && !getResult(t, 'srt') && !getResult(t, 'vtt')) curTab = 'txt';
+        const count = curTab === 'read' ? (cueCache.get(t.id) || []).length + ' 段' : getResult(t, curTab).length + ' 字';
+        resultHtml = `<div class="result">
+          <div class="rtabs">
+            ${tabs.map(([k, label]) => `<button class="rtab ${k === curTab ? 'on' : ''}" data-tab="${k}" data-id="${t.id}">${label}</button>`).join('')}
+            <span class="grow"></span>
+            <span class="rcount">${count}</span>
+            <button class="rtab act" data-copy="${t.id}">✂ 复制</button>
+            <button class="rtab act" data-save="${t.id}">💾 保存</button>
+          </div>
+          ${curTab === 'read' ? renderReadTab(t) : `<textarea data-tarea="${t.id}" spellcheck="false">${esc(getResult(t, curTab))}</textarea>`}
+        </div>`;
+      }
+    }
+    const errHtml = t.status === 'failed' && t.error ? `<div class="errmsg">❌ ${esc(t.error)}</div>` : '';
+    return `<div class="task" id="task-${t.id}">
+      <div class="row1">
+        <span class="fname" title="点击展开/收起结果" data-toggle="${t.id}">${esc(t.file)}</span>
+        <span class="fmeta">${t.sizeMB != null ? t.sizeMB + ' MB' : ''}${t.model ? ' · ' + shortModel(t.model) : ''}</span>
+        ${st}
+        <button class="delbtn" title="删除任务" data-del="${t.id}">✕</button>
+      </div>
+      <div class="bar" style="${t.status === 'done' || t.status === 'failed' ? 'display:none' : ''}"><i style="width:${prog}%"></i></div>
+      ${resultHtml}${errHtml}
+    </div>`;
+  }).join('');
+  bindPlayers();
+  modelTick();
+}
+
+function statusBadge(t) {
+  const map = { queued: ['排队中', 'queued'], preprocess: ['预处理', 'preprocess'], transcribing: ['识别中', 'transcribing'], done: ['完成', 'done'], failed: ['失败', 'failed'] };
+  const [label, cls] = map[t.status] || [t.status, 'queued'];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+function shortModel(n) { return String(n).replace('ggml-', '').replace('.bin', ''); }
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+// result 键：后端为 text / srt / vtt，前端 tab 键为 txt / srt / vtt，这里统一映射
+function getResult(t, key) { return key === 'txt' ? (t.result.text || '') : (t.result[key] || ''); }
+function setResult(t, key, v) { if (key === 'txt') t.result.text = v; else t.result[key] = v; }
+
+// ---------- v0.3 字幕跟读：解析 SRT/VTT → 播放器联动 ----------
+const cueCache = new Map(); // id -> [{start,end,text}]
+function parseCues(text) {
+  const cues = [];
+  let cur = null;
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const l = raw.trim();
+    const m = l.match(/(\d{1,2}):(\d{2}):(\d{2})[,.]\d{1,3}\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})[,.]\d{1,3}/);
+    if (m) {
+      if (cur && cur.text) cues.push(cur);
+      cur = { start: (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]), end: (+m[4]) * 3600 + (+m[5]) * 60 + (+m[6]), text: '' };
+    } else if (cur && l && !/^\d+$/.test(l)) {
+      cur.text += (cur.text ? ' ' : '') + l;
+    }
+  }
+  if (cur && cur.text) cues.push(cur);
+  return cues;
+}
+function fmtTime(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+function renderReadTab(t) {
+  const src = getResult(t, 'srt') || getResult(t, 'vtt');
+  const cues = parseCues(src);
+  cueCache.set(t.id, cues);
+  const playerTag = t.mediaType === 'video' ? 'video' : 'audio';
+  const playerHtml = t.mediaUrl
+    ? `<${playerTag} class="player" id="player-${t.id}" controls preload="metadata" src="${t.mediaUrl}"></${playerTag}>`
+    : '<div class="nospeech">⚠️ 媒体文件不可用（可能已超过 2 小时保留期），无法播放联动，文字结果不受影响</div>';
+  const cuesHtml = cues.length
+    ? cues.map((c, i) => `<div class="cue" data-cue="${i}" data-id="${t.id}"><span class="ctime">${fmtTime(c.start)}</span><span class="ctext">${esc(c.text)}</span></div>`).join('')
+    : '<div class="cueempty">没有可用的字幕段落（SRT/VTT 均为空）</div>';
+  return `<div class="cuenav"><span class="cn-hint">▶ 点击任意字幕行即可从该处开始播放；播放时当前行自动高亮。空格键 播放/暂停。</span></div>${playerHtml}<div class="cuelist" id="cues-${t.id}">${cuesHtml}</div>`;
+}
+function bindPlayers() {
+  document.querySelectorAll('audio.player, video.player').forEach((p) => {
+    if (p.dataset.bound) return;
+    p.dataset.bound = '1';
+    p.addEventListener('timeupdate', () => highlightCue(p));
+    p.addEventListener('loadedmetadata', () => highlightCue(p));
+    p.addEventListener('play', () => setActivePlayer(p));
+    p.addEventListener('error', () => {
+      if (p.dataset.errShown) return;
+      p.dataset.errShown = '1';
+      const wrap = p.parentElement;
+      const msg = document.createElement('div');
+      msg.className = 'nospeech';
+      msg.textContent = '⚠️ 媒体文件不可用（可能已超过保留期），播放联动失效，文字结果不受影响';
+      if (wrap) wrap.insertBefore(msg, p.nextSibling);
+      p.style.display = 'none';
+    });
+  });
+}
+let activePlayer = null;
+function setActivePlayer(p) { activePlayer = p; }
+function highlightCue(player) {
+  const id = player.id.replace('player-', '');
+  const list = document.getElementById('cues-' + id);
+  const cues = cueCache.get(id);
+  if (!list || !cues || !cues.length) return;
+  const time = player.currentTime;
+  let idx = cues.findIndex((c) => time >= c.start && time < c.end);
+  if (idx < 0) idx = cues.reduce((acc, c, i) => (time >= c.start ? i : acc), -1);
+  [...list.children].forEach((el, i) => el.classList.toggle('on', i === idx));
+  const on = list.children[idx];
+  if (on) on.scrollIntoView({ block: 'nearest' });
+}
+// 空格键：播放/暂停当前活动播放器（不干扰输入框/按钮操作）
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space') return;
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'BUTTON') return;
+  if (activePlayer) {
+    e.preventDefault();
+    if (activePlayer.paused) activePlayer.play().catch(() => {}); else activePlayer.pause();
+  }
+});
+
+// ---------- 结果交互 ----------
+taskList.addEventListener('click', async (e) => {
+  const id = (e.target.closest('[data-id]') || {}).dataset && e.target.closest('[data-id]').dataset.id;
+  const t = id && tasks.find((x) => x.id === id);
+
+  // 展开/收起
+  const tg = e.target.closest('[data-toggle]');
+  if (tg) {
+    const tid = tg.dataset.toggle;
+    const taskEl = document.getElementById('task-' + tid);
+    const res = taskEl && taskEl.querySelector('.result');
+    if (res) res.style.display = res.style.display === 'none' ? '' : 'none';
+    return;
+  }
+  // 删除任务
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    const tid = del.dataset.del;
+    tasks = tasks.filter((x) => x.id !== tid);
+    expanded.delete(tid);
+    clearInterval(taskTimers.get(tid)); taskTimers.delete(tid);
+    saveHistory();
+    render();
+    return;
+  }
+  // 复制
+  const cp = e.target.closest('[data-copy]');
+  if (cp) {
+    const tid = cp.dataset.copy;
+    const ta = document.querySelector(`textarea[data-tarea="${tid}"]`);
+    if (ta) {
+      try { await navigator.clipboard.writeText(ta.value); showToast('✅ 已复制到剪贴板'); }
+      catch { ta.select(); document.execCommand('copy'); showToast('✅ 已复制'); }
+    }
+    return;
+  }
+  // 保存
+  const sv = e.target.closest('[data-save]');
+  if (sv) { openSavePanel(sv.dataset.save); return; }
+  // 字幕点击跳转（跟读 tab）
+  const cue = e.target.closest('[data-cue]');
+  if (cue) {
+    const cid = cue.dataset.id;
+    const player = document.getElementById('player-' + cid);
+    const cues = cueCache.get(cid) || [];
+    const c = cues[+cue.dataset.cue];
+    if (player && c) {
+      player.currentTime = c.start;
+      player.play().catch(() => {});
+      setActivePlayer(player);
+    }
+    return;
+  }
+
+  // 切换 tab
+  const tab = e.target.closest('[data-tab]');
+  if (tab && t && t.result) {
+    // 先把当前 textarea 内容存回去（编辑不丢）
+    const ta = document.querySelector(`textarea[data-tarea="${id}"]`);
+    if (ta) setResult(t, t._tab || 'txt', ta.value);
+    t._tab = tab.dataset.tab;
+    render();
+    bindPlayers();
+  }
+});
+
+// 输入时实时更新字数
+taskList.addEventListener('input', (e) => {
+  const ta = e.target.closest('textarea[data-tarea]');
+  if (!ta) return;
+  const t = tasks.find((x) => x.id === ta.dataset.tarea);
+  if (!t) return;
+  const cur = t._tab || 'txt';
+  setResult(t, cur, ta.value);
+  const cnt = ta.parentElement.querySelector('.rcount');
+  if (cnt) cnt.textContent = ta.value.length + ' 字';
+});
+
+// ---------- 输出文件夹记忆（IndexedDB 存目录句柄，下次直接写入） ----------
+function openDB() {
+  return new Promise((ok, fail) => {
+    const rq = indexedDB.open('shiyin-db', 1);
+    rq.onupgradeneeded = () => { rq.result.createObjectStore('saves'); };
+    rq.onsuccess = () => ok(rq.result);
+    rq.onerror = () => fail(rq.error);
+  });
+}
+async function idbGet(key) {
+  const db = await openDB();
+  return new Promise((ok, fail) => {
+    const rq = db.transaction('saves', 'readonly').objectStore('saves').get(key);
+    rq.onsuccess = () => ok(rq.result);
+    rq.onerror = () => fail(rq.error);
+  });
+}
+async function idbSet(key, val) {
+  const db = await openDB();
+  return new Promise((ok, fail) => {
+    const rq = db.transaction('saves', 'readwrite').objectStore('saves').put(val, key);
+    rq.onsuccess = () => ok();
+    rq.onerror = () => fail(rq.error);
+  });
+}
+let savedDir = null; // { handle, name }
+async function initSavedDir() {
+  try { savedDir = (await idbGet('outDir')) || null; } catch { savedDir = null; }
+}
+function updateSaveLocHint() {
+  const hint = document.getElementById('saveLocHint');
+  const forgetBtn = document.getElementById('forgetDir');
+  if (savedDir && savedDir.handle) {
+    hint.textContent = '保存位置：' + savedDir.name + '（将直接保存，无需再选）';
+    forgetBtn.style.display = '';
+  } else {
+    hint.textContent = '点击保存后在系统窗口选择位置；也可点下方按钮记住一个文件夹，以后免选';
+    forgetBtn.style.display = 'none';
+  }
+}
+
+document.getElementById('pickDir').addEventListener('click', async () => {
+  if (!window.showDirectoryPicker) { showToast('❌ 当前浏览器不支持选择文件夹，请使用新版 Edge / Chrome'); return; }
+  try {
+    const h = await window.showDirectoryPicker();
+    savedDir = { handle: h, name: h.name };
+    await idbSet('outDir', savedDir);
+    updateSaveLocHint();
+    showToast('✅ 已记住文件夹：' + h.name);
+  } catch (e) { if (e.name !== 'AbortError') showToast('❌ ' + (e.message || e)); }
+});
+document.getElementById('forgetDir').addEventListener('click', async () => {
+  savedDir = null;
+  await idbSet('outDir', null);
+  updateSaveLocHint();
+  showToast('已清除文件夹记忆');
+});
+
+// ---------- 保存面板 ----------
+let saveTaskId = null;
+function openSavePanel(id) {
+  const t = tasks.find((x) => x.id === id);
+  if (!t || !t.result) return;
+  // 同步 textarea 编辑内容
+  const ta = document.querySelector(`textarea[data-tarea="${id}"]`);
+  if (ta) setResult(t, t._tab || 'txt', ta.value);
+  saveTaskId = id;
+  document.getElementById('saveName').value = t.baseName || t.file.replace(/\.[^.]+$/, '') || '转写结果';
+  const defFmt = (t._tab && t._tab !== 'read') ? t._tab : 'txt';
+  document.querySelectorAll('input[name=sfmt]').forEach((r) => { r.checked = r.value === defFmt; });
+  updateSaveLocHint();
+  document.getElementById('saveMask').classList.add('show');
+}
+function closeSavePanel() { document.getElementById('saveMask').classList.remove('show'); saveTaskId = null; }
+document.getElementById('saveCancel').addEventListener('click', closeSavePanel);
+document.getElementById('saveMask').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeSavePanel(); });
+
+document.getElementById('saveGo').addEventListener('click', async () => {
+  const t = tasks.find((x) => x.id === saveTaskId);
+  if (!t || !t.result) { closeSavePanel(); return; }
+  const fmt = document.querySelector('input[name=sfmt]:checked').value;
+  let name = document.getElementById('saveName').value.trim().replace(/[\\/:*?"<>|]/g, '_');
+  if (!name) name = '转写结果';
+  const content = getResult(t, fmt);
+
+  // 方案一：记住的文件夹 → 直接写入，无需再选
+  if (savedDir && savedDir.handle) {
+    try {
+      const fh = await savedDir.handle.getFileHandle(name + '.' + fmt, { create: true });
+      const w = await fh.createWritable();
+      await w.write(content);
+      await w.close();
+      closeSavePanel();
+      showToast('✅ 已保存：' + savedDir.name + '\\' + name + '.' + fmt);
+      return;
+    } catch (err) {
+      closeSavePanel();
+      showToast('❌ 写入失败：' + (err.message || err));
+      return;
+    }
+  }
+
+  // 方案二：系统保存对话框（可选保存位置 + 文件名确认）
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: name + '.' + fmt,
+        types: [{ description: '文本文件', accept: { 'text/plain': ['.' + fmt] } }],
+      });
+      const w = await handle.createWritable();
+      await w.write(content);
+      await w.close();
+      closeSavePanel();
+      showToast('✅ 已保存：' + name + '.' + fmt);
+      return;
+    } catch (err) {
+      closeSavePanel();
+      if (err && err.name === 'AbortError') return; // 用户取消
+      showToast('❌ 保存失败：' + (err.message || err));
+      return;
+    }
+  }
+  // 兜底：直接下载到默认下载目录
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }));
+  a.download = name + '.' + fmt;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  closeSavePanel();
+  showToast('✅ 已保存：' + name + '.' + fmt);
+});
+
+// 清空已完成
+clearDoneBtn.addEventListener('click', () => {
+  tasks = tasks.filter((t) => t.status !== 'done' && t.status !== 'failed');
+  [...taskTimers.keys()].forEach((k) => { clearInterval(taskTimers.get(k)); taskTimers.delete(k); });
+  saveHistory();
+  render();
+});
+
+// ---------- 模型管理 ----------
+let models = [];
+let lastModelJson = '';
+let modelTickTimer = null;
+
+async function loadModels() {
+  try {
+    const r = await fetch('/api/models');
+    const j = await r.json();
+    const json = JSON.stringify(j);
+    if (json !== lastModelJson) { models = j.list; lastModelJson = json; renderModels(j.download); }
+  } catch {}
+}
+function modelTick() { // 渲染任务时顺带刷新模型面板（下载进度）
+  if (modelTickTimer) return;
+  modelTickTimer = setTimeout(() => { modelTickTimer = null; loadModels(); }, 500);
+}
+function renderModels(dl) {
+  const vadDl = dl && dl.name === 'vad';
+  const vadBlock = vadData.downloaded
+    ? '<div class="model"><div class="mname">静音检测模型（VAD）</div><div class="minfo">0.9 MB · 跳过静音段，长音频/播客更快</div><div class="mrow"><span class="mstatus ok">✅ 已就绪</span></div></div>'
+    : '<div class="model"><div class="mname">静音检测模型（VAD）</div><div class="minfo">0.9 MB · 跳过静音段，长音频/播客更快</div><div class="mrow">' + (vadDl ? '<span class="mstatus off">下载中…</span>' : '<button class="btn sm" data-vad-dl="1">⬇ 下载</button>') + '</div></div>';
+  modelList.innerHTML = models.map((m) => {
+    const isDl = dl && dl.name === m.name;
+    let action;
+    if (m.downloaded) {
+      action = m.active
+        ? '<span class="mstatus ok">✅ 使用中</span>'
+        : '<button class="btn sm primary" data-use="' + m.name + '">使用</button>';
+    } else {
+      action = isDl
+        ? '<span class="mstatus off">下载中 ' + dl.progress + '%</span>'
+        : '<button class="btn sm" data-dl-model="' + m.name + '">⬇ 下载</button>';
+    }
+    const bar = isDl
+      ? '<div class="mbar"><i style="width:' + dl.progress + '%"></i></div><div class="mspeed">' + (dl.speedMBs ? dl.speedMBs.toFixed(1) + ' MB/s' : '连接中…') + '</div>'
+      : '';
+    return '<div class="model ' + (m.active ? 'active' : '') + '">' +
+      '<div class="mname">' + m.name + '</div>' +
+      '<div class="minfo">' + m.sizeMB + ' MB · ' + m.desc + (m.active ? ' · 当前' : '') + '</div>' +
+      '<div class="mrow">' + action + '</div>' + bar +
+    '</div>';
+  }).join('') + vadBlock;
+  const cb = document.getElementById('useVad');
+  const hint = document.getElementById('vadHint');
+  if (cb) {
+    cb.disabled = !vadData.downloaded;
+    cb.checked = cb.checked && vadData.downloaded;
+  }
+  if (hint) hint.style.display = vadData.downloaded ? 'none' : '';
+}
+let vadData = { downloaded: false };
+
+async function loadModels() {
+  try {
+    const r = await fetch('/api/models');
+    const j = await r.json();
+    const json = JSON.stringify(j);
+    if (json !== lastModelJson) { models = j.list; lastModelJson = json; vadData = j.vad || { downloaded: false }; renderModels(j.download); }
+  } catch {}
+}
+modelList.addEventListener('click', async (e) => {
+  const vd = e.target.closest('[data-vad-dl]');
+  if (vd) {
+    const r = await fetch('/api/vad/download', { method: 'POST' });
+    const j = await r.json();
+    if (!r.ok) { showToast('❌ ' + (j.error || '下载失败')); return; }
+    showToast('开始下载静音检测模型（约 0.9 MB）');
+    const iv = setInterval(async () => {
+      try {
+        const r2 = await fetch('/api/models');
+        const j2 = await r2.json();
+        vadData = j2.vad || vadData;
+        renderModels(j2.download);
+        if (vadData.downloaded) { clearInterval(iv); showToast('✅ 静音检测模型已就绪，可勾选「跳过静音段」'); }
+      } catch { clearInterval(iv); }
+    }, 1000);
+    return;
+  }
+  const use = e.target.closest('[data-use]');
+  const dl = e.target.closest('[data-dl-model]');
+  if (use) {
+    const r = await fetch('/api/models/use', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: use.dataset.use }) });
+    const j = await r.json();
+    if (r.ok) showToast('已切换模型'); else showToast('❌ ' + j.error);
+    loadModels();
+    return;
+  }
+  if (dl) {
+    const r = await fetch('/api/models/download', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: dl.dataset.dlModel }) });
+    const j = await r.json();
+    if (!r.ok) { showToast('❌ ' + j.error); return; }
+    showToast('开始下载 ' + shortModel(dl.dataset.dlModel) + '（断点续传，可随时关闭窗口后重开）');
+    const iv = setInterval(async () => {
+      try {
+        const r2 = await fetch('/api/models');
+        const j2 = await r2.json();
+        renderModels(j2.download);
+        if (!j2.download || j2.download.status === 'done' || j2.download.status === 'failed') {
+          clearInterval(iv);
+          loadModels();
+          if (j2.download && j2.download.status === 'done') showToast('✅ 模型下载完成');
+          if (j2.download && j2.download.status === 'failed') showToast('❌ 下载失败: ' + j2.download.error);
+        }
+      } catch { clearInterval(iv); }
+    }, 1000);
+  }
+});
+
+loadHistory();
+initSavedDir();
+loadModels();
+loadServerTasks();
+setInterval(loadModels, 4000);
+// PWA：注册 Service Worker（仅支持时）
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+}
+</script>
+</body>
+</html>
