@@ -2,6 +2,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](RELEASE.md)
+
+> 版本状态：**v0.4.0 · 【可用】**（2026-09-01 开源定版，本地实测功能全通）。0.x 为迭代期语义——功能仍在演进、未承诺稳定，不代表质量问题。
+> 反哺通道：自用分支「视频蒸馏」已验证的增强（B站官方 API 直连 + 字幕优先、输出目录可配置、风控韧性）将视情况反哺回本仓库。
 [![Node](https://img.shields.io/badge/Node.js-18+-green.svg)](package.json)
 [![CI](https://github.com/x1303145921/shiyin/actions/workflows/ci.yml/badge.svg)](https://github.com/x1303145921/shiyin/actions/workflows/ci.yml)
 
